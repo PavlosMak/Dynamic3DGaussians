@@ -1,4 +1,4 @@
-
+import argparse
 import torch
 import numpy as np
 import open3d as o3d
@@ -8,20 +8,6 @@ from helpers import setup_camera, quat_mult
 from external import build_rotation
 from colormap import colormap
 from copy import deepcopy
-
-RENDER_MODE = 'color'  # 'color', 'depth' or 'centers'
-# RENDER_MODE = 'depth'  # 'color', 'depth' or 'centers'
-# RENDER_MODE = 'centers'  # 'color', 'depth' or 'centers'
-
-ADDITIONAL_LINES = None  # None, 'trajectories' or 'rotations'
-# ADDITIONAL_LINES = 'trajectories'  # None, 'trajectories' or 'rotations'
-# ADDITIONAL_LINES = 'rotations'  # None, 'trajectories' or 'rotations'
-
-REMOVE_BACKGROUND = False  # False or True
-# REMOVE_BACKGROUND = True  # False or True
-
-FORCE_LOOP = False  # False or True
-# FORCE_LOOP = True  # False or True
 
 w, h = 640, 360
 near, far = 0.01, 100.0
@@ -37,15 +23,15 @@ pix_ones = torch.ones(h * w, 1).cuda().float()
 def init_camera(y_angle=0., center_dist=2.4, cam_height=1.3, f_ratio=0.82):
     ry = y_angle * np.pi / 180
     w2c = np.array([[np.cos(ry), 0., -np.sin(ry), 0.],
-                    [0.,         1., 0.,          cam_height],
-                    [np.sin(ry), 0., np.cos(ry),  center_dist],
-                    [0.,         0., 0.,          1.]])
+                    [0., 1., 0., cam_height],
+                    [np.sin(ry), 0., np.cos(ry), center_dist],
+                    [0., 0., 0., 1.]])
     k = np.array([[f_ratio * w, 0, w / 2], [0, f_ratio * w, h / 2], [0, 0, 1]])
     return w2c, k
 
 
-def load_scene_data(seq, exp, seg_as_col=False):
-    params = dict(np.load(f"./output/{exp}/{seq}/params.npz"))
+def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_as_col=False):
+    params = dict(np.load(f"{model_location}/{exp}/{seq}/params.npz"))
     params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}
     is_fg = params['seg_colors'][:, 0] > 0.5
     scene_data = []
@@ -58,10 +44,10 @@ def load_scene_data(seq, exp, seg_as_col=False):
             'scales': torch.exp(params['log_scales']),
             'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
         }
-        if REMOVE_BACKGROUND:
+        if remove_background:
             rendervar = {k: v[is_fg] for k, v in rendervar.items()}
         scene_data.append(rendervar)
-    if REMOVE_BACKGROUND:
+    if remove_background:
         is_fg = is_fg[is_fg]
     return scene_data, is_fg
 
@@ -137,15 +123,15 @@ def rgbd2pcd(im, depth, w2c, k, show_depth=False, project_to_cam_w_scale=None):
     return pts, cols
 
 
-def visualize(seq, exp):
-    scene_data, is_fg = load_scene_data(seq, exp)
+def visualize(seq, exp, args: argparse.Namespace):
+    scene_data, is_fg = load_scene_data(seq, exp, args.remove_background, args.model_location)
 
     vis = o3d.visualization.Visualizer()
     vis.create_window(width=int(w * view_scale), height=int(h * view_scale), visible=True)
 
     w2c, k = init_camera()
     im, depth = render(w2c, k, scene_data[0])
-    init_pts, init_cols = rgbd2pcd(im, depth, w2c, k, show_depth=(RENDER_MODE == 'depth'))
+    init_pts, init_cols = rgbd2pcd(im, depth, w2c, k, show_depth=(args.render_mode == 'depth'))
     pcd = o3d.geometry.PointCloud()
     pcd.points = init_pts
     pcd.colors = init_cols
@@ -153,10 +139,10 @@ def visualize(seq, exp):
 
     linesets = None
     lines = None
-    if ADDITIONAL_LINES is not None:
-        if ADDITIONAL_LINES == 'trajectories':
+    if args.lines is not None:
+        if args.lines == 'trajectories':
             linesets = calculate_trajectories(scene_data, is_fg)
-        elif ADDITIONAL_LINES == 'rotations':
+        elif args.lines == 'rotations':
             linesets = calculate_rot_vec(scene_data, is_fg)
         lines = o3d.geometry.LineSet()
         lines.points = linesets[0].points
@@ -183,14 +169,14 @@ def visualize(seq, exp):
     while True:
         passed_time = time.time() - start_time
         passed_frames = passed_time * fps
-        if ADDITIONAL_LINES == 'trajectories':
+        if args.lines == 'trajectories':
             t = int(passed_frames % (num_timesteps - traj_length)) + traj_length  # Skip t that don't have full traj.
         else:
             t = int(passed_frames % num_timesteps)
 
-        if FORCE_LOOP:
+        if args.force_loop:
             num_loops = 1.4
-            y_angle = 360*t*num_loops / num_timesteps
+            y_angle = 360 * t * num_loops / num_timesteps
             w2c, k = init_camera(y_angle)
             cam_params = view_control.convert_to_pinhole_camera_parameters()
             cam_params.extrinsic = w2c
@@ -202,18 +188,18 @@ def visualize(seq, exp):
             k[2, 2] = 1
             w2c = cam_params.extrinsic
 
-        if RENDER_MODE == 'centers':
+        if args.render_mode == 'centers':
             pts = o3d.utility.Vector3dVector(scene_data[t]['means3D'].contiguous().double().cpu().numpy())
             cols = o3d.utility.Vector3dVector(scene_data[t]['colors_precomp'].contiguous().double().cpu().numpy())
         else:
             im, depth = render(w2c, k, scene_data[t])
-            pts, cols = rgbd2pcd(im, depth, w2c, k, show_depth=(RENDER_MODE == 'depth'))
+            pts, cols = rgbd2pcd(im, depth, w2c, k, show_depth=(args.render_mode == 'depth'))
         pcd.points = pts
         pcd.colors = cols
         vis.update_geometry(pcd)
 
-        if ADDITIONAL_LINES is not None:
-            if ADDITIONAL_LINES == 'trajectories':
+        if args.lines is not None:
+            if args.lines == 'trajectories':
                 lt = t - traj_length
             else:
                 lt = t
@@ -233,6 +219,21 @@ def visualize(seq, exp):
 
 
 if __name__ == "__main__":
-    exp_name = "pretrained"
+    parser = argparse.ArgumentParser(description="Dynamic 3D Gaussian Visualizing")
+    parser.add_argument("-e", "--exp_name", help="Name of the experiment", default="exp1")
+    parser.add_argument("-rm", "--render_mode", help="The rendering mode. Select from 'color', 'depth', 'centers'.",
+                        default="color")
+    parser.add_argument("-l", "--lines",
+                        help="The additional lines to be shown. Select from none, 'trajectories' and `rotations`.",
+                        default=None)
+    parser.add_argument("-rb", "--remove_background", action="store_true",
+                        help="Controls whether the background should be removed",
+                        default=False)
+    parser.add_argument("-f", "--force_loop", action="store_true", help="Controls whether to force the loop")
+    parser.add_argument("-m", "--model_location", help="The location of the model to be visualized.",
+                        default="./output")
+
+    args = parser.parse_args()
+    exp_name = args.exp_name
     for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:
-        visualize(sequence, exp_name)
+        visualize(sequence, exp_name, args)
