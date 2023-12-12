@@ -194,6 +194,7 @@ def train(seq, exp, args: argparse.Namespace):
         return
     md = json.load(open(f"{args.data}/{seq}/train_meta.json", 'r'))  # metadata
     num_timesteps = len(md['fn'])
+    num_timesteps = min(num_timesteps, args.timesteps)
     params, variables = initialize_params(seq, md, args.data)
     optimizer = initialize_optimizer(params, variables)
     output_params = []
@@ -203,7 +204,7 @@ def train(seq, exp, args: argparse.Namespace):
         is_initial_timestep = (t == 0)
         if not is_initial_timestep:
             params, variables = initialize_per_timestep(params, variables, optimizer)
-        num_iter_per_timestep = 10000 if is_initial_timestep else 2000
+        num_iter_per_timestep = args.initial_iters if is_initial_timestep else args.rest_iters
         progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
         for i in range(num_iter_per_timestep):
             curr_data = get_batch(todo_dataset, dataset)
@@ -219,7 +220,7 @@ def train(seq, exp, args: argparse.Namespace):
         output_params.append(params2cpu(params, is_initial_timestep))
         if is_initial_timestep:
             variables = initialize_post_first_timestep(params, variables, optimizer)
-    save_params(output_params, seq, exp)
+    save_params(output_params, seq, exp, args.output)
 
 
 if __name__ == "__main__":
@@ -227,6 +228,13 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--exp_name", help="Name of the experiment", default="exp1")
     parser.add_argument("-o", "--output", help="Path to output directory", default="./output")
     parser.add_argument("-d", "--data", help="Path to data directory", default="./data")
+    parser.add_argument("-i", "--initial_iters", type=int, help="Optimization iterations for the original frame",
+                        default=10000)
+    parser.add_argument("-r", "--rest_iters", type=int,
+                        help="Optimization iterations for the all but the original frame",
+                        default=2000)
+    parser.add_argument("-t", "--timesteps", type=int, help="Timesteps to optimize for",
+                        default=1000000000)  # default big value, so that we use all available ones
 
     args = parser.parse_args()
     exp_name = args.exp_name
@@ -234,12 +242,16 @@ if __name__ == "__main__":
     # CUDA Logging
     print(f"Cuda available: {torch.cuda.is_available()}")
     current_device = torch.cuda.current_device()
-    current_device_id = torch.cuda.device(current_device)
     current_device_name = torch.cuda.get_device_name(current_device)
     print(f"Number of CUDA devices: {torch.cuda.device_count()}")
-    print(f"Current device name: {current_device_name} and id: {current_device_id}")
+    print(f"Current device name: {current_device_name}")
+    print(f"Current device memory: {torch.cuda.get_device_properties(current_device).total_memory}")
 
     print(f"Running {exp_name}")
-    for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:
+
+    # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
+    sequences = ["basketball"]
+
+    for sequence in sequences:
         train(sequence, exp_name, args)
         torch.cuda.empty_cache()

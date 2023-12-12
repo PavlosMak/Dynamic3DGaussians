@@ -4,10 +4,12 @@ import numpy as np
 import open3d as o3d
 import time
 from diff_gaussian_rasterization import GaussianRasterizer as Renderer
-from helpers import setup_camera, quat_mult
+from helpers import setup_camera, quat_mult, load_scene_data
 from external import build_rotation
 from colormap import colormap
 from copy import deepcopy
+
+PLAYING = True
 
 w, h = 640, 360
 near, far = 0.01, 100.0
@@ -20,6 +22,11 @@ def_pix = torch.tensor(
 pix_ones = torch.ones(h * w, 1).cuda().float()
 
 
+def pause(visualizer):
+    global PLAYING
+    PLAYING = not PLAYING
+
+
 def init_camera(y_angle=0., center_dist=2.4, cam_height=1.3, f_ratio=0.82):
     ry = y_angle * np.pi / 180
     w2c = np.array([[np.cos(ry), 0., -np.sin(ry), 0.],
@@ -28,28 +35,6 @@ def init_camera(y_angle=0., center_dist=2.4, cam_height=1.3, f_ratio=0.82):
                     [0., 0., 0., 1.]])
     k = np.array([[f_ratio * w, 0, w / 2], [0, f_ratio * w, h / 2], [0, 0, 1]])
     return w2c, k
-
-
-def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_as_col=False):
-    params = dict(np.load(f"{model_location}/{exp}/{seq}/params.npz"))
-    params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}
-    is_fg = params['seg_colors'][:, 0] > 0.5
-    scene_data = []
-    for t in range(len(params['means3D'])):
-        rendervar = {
-            'means3D': params['means3D'][t],
-            'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
-            'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
-            'opacities': torch.sigmoid(params['logit_opacities']),
-            'scales': torch.exp(params['log_scales']),
-            'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
-        }
-        if remove_background:
-            rendervar = {k: v[is_fg] for k, v in rendervar.items()}
-        scene_data.append(rendervar)
-    if remove_background:
-        is_fg = is_fg[is_fg]
-    return scene_data, is_fg
 
 
 def make_lineset(all_pts, cols, num_lines):
@@ -126,8 +111,9 @@ def rgbd2pcd(im, depth, w2c, k, show_depth=False, project_to_cam_w_scale=None):
 def visualize(seq, exp, args: argparse.Namespace):
     scene_data, is_fg = load_scene_data(seq, exp, args.remove_background, args.model_location)
 
-    vis = o3d.visualization.Visualizer()
+    vis = o3d.visualization.VisualizerWithKeyCallback()
     vis.create_window(width=int(w * view_scale), height=int(h * view_scale), visible=True)
+    vis.register_key_callback(o3d.visualization.gui.SPACE, pause)
 
     w2c, k = init_camera()
     im, depth = render(w2c, k, scene_data[0])
@@ -166,6 +152,7 @@ def visualize(seq, exp, args: argparse.Namespace):
 
     start_time = time.time()
     num_timesteps = len(scene_data)
+
     while True:
         passed_time = time.time() - start_time
         passed_frames = passed_time * fps
@@ -236,12 +223,15 @@ if __name__ == "__main__":
     # CUDA Logging
     print(f"Cuda available: {torch.cuda.is_available()}")
     current_device = torch.cuda.current_device()
-    current_device_id = torch.cuda.device(current_device)
     current_device_name = torch.cuda.get_device_name(current_device)
     print(f"Number of CUDA devices: {torch.cuda.device_count()}")
-    print(f"Current device name: {current_device_name} and id: {current_device_id}")
+    print(f"Current device name: {current_device_name}")
 
     args = parser.parse_args()
     exp_name = args.exp_name
-    for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:
+
+    # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
+    sequences = ["basketball"]
+
+    for sequence in sequences:
         visualize(sequence, exp_name, args)

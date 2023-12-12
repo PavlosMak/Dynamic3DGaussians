@@ -91,12 +91,33 @@ def params2cpu(params, is_initial_timestep):
     return res
 
 
-def save_params(output_params, seq, exp):
+def save_params(output_params, seq, exp, output_dir: str):
     to_save = {}
     for k in output_params[0].keys():
         if k in output_params[1].keys():
             to_save[k] = np.stack([params[k] for params in output_params])
         else:
             to_save[k] = output_params[0][k]
-    os.makedirs(f"./output/{exp}/{seq}", exist_ok=True)
-    np.savez(f"./output/{exp}/{seq}/params", **to_save)
+    os.makedirs(f"{output_dir}/{exp}/{seq}", exist_ok=True)
+    np.savez(f"{output_dir}/{exp}/{seq}/params", **to_save)
+
+def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_as_col=False):
+    params = dict(np.load(f"{model_location}/{exp}/{seq}/params.npz"))
+    params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}
+    is_fg = params['seg_colors'][:, 0] > 0.5
+    scene_data = []
+    for t in range(len(params['means3D'])):
+        rendervar = {
+            'means3D': params['means3D'][t],
+            'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
+            'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
+            'opacities': torch.sigmoid(params['logit_opacities']),
+            'scales': torch.exp(params['log_scales']),
+            'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
+        }
+        if remove_background:
+            rendervar = {k: v[is_fg] for k, v in rendervar.items()}
+        scene_data.append(rendervar)
+    if remove_background:
+        is_fg = is_fg[is_fg]
+    return scene_data, is_fg
