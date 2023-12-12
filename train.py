@@ -231,8 +231,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     exp_name = args.exp_name
 
-    print(f"Running {exp_name}")
+    # CUDA Logging
     print(f"Cuda available: {torch.cuda.is_available()}")
+    current_device = torch.cuda.current_device()
+    current_device_id = torch.cuda.device(current_device)
+    current_device_name = torch.cuda.get_device_name(current_device)
+    print(f"Number of CUDA devices: {torch.cuda.device_count()}")
+    print(f"Current device name: {current_device_name} and id: {current_device_id}")
+
+    print(f"Running {exp_name}")
     for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:
         train(sequence, exp_name, args)
         torch.cuda.empty_cache()

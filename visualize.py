@@ -233,6 +233,14 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model_location", help="The location of the model to be visualized.",
                         default="./output")
 
+    # CUDA Logging
+    print(f"Cuda available: {torch.cuda.is_available()}")
+    current_device = torch.cuda.current_device()
+    current_device_id = torch.cuda.device(current_device)
+    current_device_name = torch.cuda.get_device_name(current_device)
+    print(f"Number of CUDA devices: {torch.cuda.device_count()}")
+    print(f"Current device name: {current_device_name} and id: {current_device_id}")
+
     args = parser.parse_args()
     exp_name = args.exp_name
     for sequence in ["basketball", "boxes", "football", "juggle", "softball", "tennis"]:

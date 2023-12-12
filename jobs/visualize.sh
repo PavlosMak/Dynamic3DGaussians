@@ -11,9 +11,13 @@
 
 module load 2022r2
 module load cuda/11.6
+module load py-pip
+module load openmpi py-torch
+module load py-tqdm
+module load
 
 previous=$(/usr/bin/nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
 
-srun ./executable
+srun python visualize.py -e "experiment_name" -m "path/to/model"
 
 /usr/bin/nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/grep -v -F "$previous"
