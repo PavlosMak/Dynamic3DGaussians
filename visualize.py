@@ -231,7 +231,7 @@ if __name__ == "__main__":
     exp_name = args.exp_name
 
     # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
-    sequences = ["basketball"]
-
+    # sequences = ["basketball"]
+    sequences = ["bird"]
     for sequence in sequences:
         visualize(sequence, exp_name, args)

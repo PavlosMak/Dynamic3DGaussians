@@ -249,9 +249,10 @@ if __name__ == "__main__":
 
     print(f"Running {exp_name}")
 
+    # TODO: find better way to do this
     # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
-    sequences = ["basketball"]
-
+    # sequences = ["basketball"]
+    sequences = ["bird"]
     for sequence in sequences:
         train(sequence, exp_name, args)
         torch.cuda.empty_cache()
