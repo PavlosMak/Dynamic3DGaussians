@@ -188,15 +188,6 @@ def report_progress(params, data, i, progress_bar, every_i=100):
         progress_bar.update(every_i)
 
 
-def log_dataset(dataset):
-    with open("camera_log_bird.txt", "w") as file:
-        for view in dataset:
-            camera = view["cam"]
-            camera_log = {"pos": camera.campos.tolist(), "viewmatrix": camera.viewmatrix.tolist()}
-            file.write(str(camera_log) + "\n")
-    file.close()
-
-
 def train(seq, exp, args: argparse.Namespace):
     if os.path.exists(f"{args.output}/{exp}/{seq}"):
         print(f"Experiment '{exp}' for sequence '{seq}' already exists. Exiting.")
@@ -209,7 +200,6 @@ def train(seq, exp, args: argparse.Namespace):
     output_params = []
     for t in range(num_timesteps):
         dataset = get_dataset(t, md, seq, args.data)
-        log_dataset(dataset)
         todo_dataset = []
         is_initial_timestep = (t == 0)
         if not is_initial_timestep:

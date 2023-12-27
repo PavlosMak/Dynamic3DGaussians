@@ -22,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input_path", help="The path where the PAC sequences are stored")
     parser.add_argument("-o", "--output_path", help="The desired output path")
     parser.add_argument("-s", "--sequences", nargs="+", type=str, help="The sequences")
+    parser.add_argument("-p", "--point_count", type=int, default=100, help="Number of initial points")
 
     args = parser.parse_args()
 
@@ -142,6 +143,8 @@ if __name__ == '__main__':
             json.dump(dataset_meta, f)
 
         # Generate initial points by randomly sampling the unit cube, and initial colors from [0.5, 1.0]
-        points = np.concatenate((np.random.uniform(-1, 1, (100, 3)), np.random.uniform(0.5, 1.0, (100, 4))), axis=1)
+        points = np.concatenate(
+            (np.random.uniform(-1, 1, (args.point_count, 3)), np.random.uniform(0.5, 1.0, (args.point_count, 4))),
+            axis=1)
         file = f"{output_sequence_path}/init_pt_cld.npz"
         np.savez(file, data=points)
