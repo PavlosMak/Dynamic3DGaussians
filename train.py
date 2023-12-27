@@ -188,6 +188,15 @@ def report_progress(params, data, i, progress_bar, every_i=100):
         progress_bar.update(every_i)
 
 
+def log_dataset(dataset):
+    with open("camera_log_bird.txt", "w") as file:
+        for view in dataset:
+            camera = view["cam"]
+            camera_log = {"pos": camera.campos.tolist(), "viewmatrix": camera.viewmatrix.tolist()}
+            file.write(str(camera_log) + "\n")
+    file.close()
+
+
 def train(seq, exp, args: argparse.Namespace):
     if os.path.exists(f"{args.output}/{exp}/{seq}"):
         print(f"Experiment '{exp}' for sequence '{seq}' already exists. Exiting.")
@@ -200,6 +209,7 @@ def train(seq, exp, args: argparse.Namespace):
     output_params = []
     for t in range(num_timesteps):
         dataset = get_dataset(t, md, seq, args.data)
+        log_dataset(dataset)
         todo_dataset = []
         is_initial_timestep = (t == 0)
         if not is_initial_timestep:
@@ -235,6 +245,7 @@ if __name__ == "__main__":
                         default=2000)
     parser.add_argument("-t", "--timesteps", type=int, help="Timesteps to optimize for",
                         default=1000000000)  # default big value, so that we use all available ones
+    parser.add_argument("-s", "--sequences", nargs="+", type=str, help="The sequence names")
 
     args = parser.parse_args()
     exp_name = args.exp_name
@@ -249,10 +260,6 @@ if __name__ == "__main__":
 
     print(f"Running {exp_name}")
 
-    # TODO: find better way to do this
-    # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
-    # sequences = ["basketball"]
-    sequences = ["bird"]
-    for sequence in sequences:
+    for sequence in args.sequences:
         train(sequence, exp_name, args)
         torch.cuda.empty_cache()

@@ -219,6 +219,7 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--force_loop", action="store_true", help="Controls whether to force the loop")
     parser.add_argument("-m", "--model_location", help="The location of the model to be visualized.",
                         default="./output")
+    parser.add_argument("-s", "--sequences", nargs="+", type=str, help="The sequence names")
 
     # CUDA Logging
     print(f"Cuda available: {torch.cuda.is_available()}")
@@ -230,8 +231,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     exp_name = args.exp_name
 
-    # sequences = ["basketball", "boxes", "football", "juggle", "softball", "tennis"]
-    # sequences = ["basketball"]
-    sequences = ["bird"]
-    for sequence in sequences:
+    for sequence in args.sequences:
         visualize(sequence, exp_name, args)
