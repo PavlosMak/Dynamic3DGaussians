@@ -1,21 +1,15 @@
-import json
-import os
-
 import argparse
+import json
+
+import cv2
 import numpy as np
 import torch
 from PIL import Image
-from tqdm import tqdm
-from matting import MattingRefine
 from torchvision import transforms as T
+from tqdm import tqdm
 
-import cv2
-
-
-def create_directory_if_not_exists(directory_path):
-    if not os.path.exists(directory_path):
-        os.makedirs(directory_path)
-
+from matting import MattingRefine
+from converter_utilities import create_directory_if_not_exists
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Dataset converter from PACNerf to the Dynamic 3D Gaussians dataset")
@@ -27,7 +21,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     base_path_pac = args.input_path
-    sequences = args.sequences
     output_path = args.output_path
 
     for i, sequence in enumerate(args.sequences):
@@ -146,5 +139,6 @@ if __name__ == '__main__':
         points = np.concatenate(
             (np.random.uniform(-1, 1, (args.point_count, 3)), np.random.uniform(0.5, 1.0, (args.point_count, 4))),
             axis=1)
+        points[:, 6] = 1.0  # set alphas to 1.0
         file = f"{output_sequence_path}/init_pt_cld.npz"
         np.savez(file, data=points)

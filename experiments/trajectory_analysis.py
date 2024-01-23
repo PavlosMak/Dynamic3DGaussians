@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from helpers import load_scene_data
 
-OUTPUT_PATH = "./output"
+OUTPUT_PATH = "../output"
 
 
 class SceneDeformation:

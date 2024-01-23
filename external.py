@@ -1,4 +1,3 @@
-
 """
 # Copyright (C) 2023, Inria
 # GRAPHDECO research group, https://team.inria.fr/graphdeco
@@ -170,7 +169,7 @@ def densify(params, variables, optimizer, i):
             grads = variables['means2D_gradient_accum'] / variables['denom']
             grads[grads.isnan()] = 0.0
             to_clone = torch.logical_and(grads >= grad_thresh, (
-                        torch.max(torch.exp(params['log_scales']), dim=1).values <= 0.01 * variables['scene_radius']))
+                    torch.max(torch.exp(params['log_scales']), dim=1).values <= 0.01 * variables['scene_radius']))
             new_params = {k: v[to_clone] for k, v in params.items() if k not in ['cam_m', 'cam_c']}
             params = cat_params_to_optimizer(new_params, params, optimizer)
             num_pts = params['means3D'].shape[0]
@@ -180,7 +179,7 @@ def densify(params, variables, optimizer, i):
             to_split = torch.logical_and(padded_grad >= grad_thresh,
                                          torch.max(torch.exp(params['log_scales']), dim=1).values > 0.01 * variables[
                                              'scene_radius'])
-            n = 2  # number to split into
+            n = variables['split_into']  # number to split into
             new_params = {k: v[to_split].repeat(n, 1) for k, v in params.items() if k not in ['cam_m', 'cam_c']}
             stds = torch.exp(params['log_scales'])[to_split].repeat(n, 1)
             means = torch.zeros((stds.size(0), 3), device="cuda")

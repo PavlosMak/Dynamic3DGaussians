@@ -47,6 +47,23 @@ def l1_loss_v1(x, y):
     return torch.abs((x - y)).mean()
 
 
+def l1_loss_masked(x, y, mask: torch.Tensor):
+    return torch.abs((x - y)).sum() / torch.count_nonzero(mask)
+
+
+def opacity_loss(opacity_logits: torch.Tensor):
+    exp = torch.exp(opacity_logits)
+    alphas = exp / (1 + exp)
+    return (1 - alphas).mean()
+
+
+def opacity_entropy_loss(opacity_logits: torch.Tensor):
+    exp = torch.exp(opacity_logits)
+    alphas = exp / (1 + exp)
+    log_alphas = torch.log2(alphas)
+    return -torch.sum(alphas * log_alphas)
+
+
 def l1_loss_v2(x, y):
     return (torch.abs(x - y).sum(-1)).mean()
 
@@ -94,12 +111,13 @@ def params2cpu(params, is_initial_timestep):
 def save_params(output_params, seq, exp, output_dir: str):
     to_save = {}
     for k in output_params[0].keys():
-        if k in output_params[1].keys():
+        if len(output_params) > 1 and k in output_params[1].keys():
             to_save[k] = np.stack([params[k] for params in output_params])
         else:
             to_save[k] = output_params[0][k]
     os.makedirs(f"{output_dir}/{exp}/{seq}", exist_ok=True)
     np.savez(f"{output_dir}/{exp}/{seq}/params", **to_save)
+
 
 def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_as_col=False):
     params = dict(np.load(f"{model_location}/{exp}/{seq}/params.npz"))

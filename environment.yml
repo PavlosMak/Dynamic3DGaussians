@@ -15,3 +15,4 @@ dependencies:
   - pip:
     - open3d==0.16.0
     - av
+    - pytorch3d
