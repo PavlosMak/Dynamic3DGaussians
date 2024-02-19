@@ -11,6 +11,8 @@ from helpers import load_scene_data
 from skimage import measure
 import open3d as o3d
 
+from scipy.ndimage import gaussian_filter
+
 
 class VoxelGrid3D:
     """
@@ -74,6 +76,7 @@ class VoxelGrid3D:
         return torch.tensor([x, y, z])
 
 
+# TODO: Parallelize
 def calculate_occupancies(seq: str, experiment: str, model_loc: str, output_file=None, l0_voxel_size=0.25,
                           l1_voxel_size=0.05) -> Meshes:
     """
@@ -106,9 +109,8 @@ def calculate_occupancies(seq: str, experiment: str, model_loc: str, output_file
     covariances = torch.bmm(rs, rs_t)
 
     # Create the grids
-    min_point = torch.floor(torch.min(centers, dim=0)[0])
-    max_point = torch.ceil(torch.max(centers, dim=0)[0])
-
+    min_point = torch.floor(torch.min(centers, dim=0)[0]) - 1
+    max_point = torch.ceil(torch.max(centers, dim=0)[0]) + 1
 
     l0_grid = VoxelGrid3D(min_point=min_point, max_point=max_point, voxel_size=l0_voxel_size)
     [l0_grid.add_data(center, gi) for gi, center in enumerate(centers)]
@@ -163,7 +165,20 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    occupancies = calculate_occupancies(args.sequence, args.experiment, args.model_location,
-                                        f"/home/pavlos/Desktop/stuff/Uni-Masters/thesis/jupyters/data/volume.npz")
-    mesh = mesh_extractor(occupancies, 0.1)
-    o3d.io.write_triangle_mesh(f"{args.output}/{args.name}", mesh)
+    # TODO: Clean this up - Potentially extract the entire thing to a different repo
+    output_file = f"/home/pavlos/Desktop/stuff/Uni-Masters/thesis/jupyters/data/volume_3000init.npz"
+    load = True
+    if load:
+        occupancies = calculate_occupancies(args.sequence, args.experiment, args.model_location,
+                                            output_file)
+        np.savez(output_file, occupancies)
+    else:
+        occupancies = np.load(output_file)['arr_0']
+
+    occupancies_smoothed = gaussian_filter(occupancies, sigma=1.0)
+    np.savez(f"/home/pavlos/Desktop/stuff/Uni-Masters/thesis/jupyters/data/volume_3000init_smoothed.npz",
+             occupancies_smoothed)
+
+    # mesh = mesh_extractor(occupancies, 0.1)
+    # o3d.io.write_triangle_mesh(f"{args.output}/{args.name}", mesh)
+    #

@@ -110,7 +110,7 @@ def rgbd2pcd(im, depth, w2c, k, show_depth=False, project_to_cam_w_scale=None):
 
 def visualize(seq, exp, args: argparse.Namespace):
     scene_data, is_fg = load_scene_data(seq, exp, args.remove_background, args.model_location)
-
+    print("Loaded scene data")
     vis = o3d.visualization.VisualizerWithKeyCallback()
     vis.create_window(width=int(w * view_scale), height=int(h * view_scale), visible=True)
     vis.register_key_callback(o3d.visualization.gui.SPACE, pause)
