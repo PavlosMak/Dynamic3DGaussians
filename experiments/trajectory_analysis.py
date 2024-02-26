@@ -81,7 +81,7 @@ def animate_gradients(scene: SceneDeformation):
     # transpose to group gradients per point instead of per frame
     walks = torch.transpose(positional_gradients_tensor, 0, 1)
     # sample points to reduce them for the visualization
-    indices = np.random.choice(walks.shape[0], 2000, replace=False)
+    indices = np.random.choice(walks.shape[0], 100, replace=False)
     walks = walks[indices].cpu()
 
     # Attaching 3D axis to the figure
@@ -112,10 +112,10 @@ if __name__ == "__main__":
 
     scene = SceneDeformation(scene_data, is_fg)
 
-    plot_vector_field(scene.frames_origins[0].cpu(), scene.positional_gradients[0].cpu(),
-                          fraction=0.025, multiplier=10)
+    # plot_vector_field(scene.frames_origins[0].cpu(), scene.positional_gradients[0].cpu(),
+    #                       fraction=0.025, multiplier=10)
 
-    # animate_gradients(scene)
+    animate_gradients(scene)
     # images = []
     # for i in tqdm(range(scene.frame_count - 1)):
     #     output_path = f"{OUTPUT_PATH}/{i}.jpg"

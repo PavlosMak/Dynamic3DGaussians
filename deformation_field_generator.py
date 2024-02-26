@@ -13,13 +13,14 @@ import open3d as o3d
 
 from scipy.ndimage import gaussian_filter
 
+import point_cloud_utils as pcu
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mesh extraction from Dynamic 3D Gaussian model")
     parser.add_argument("-o", "--output", help="Path to output directory")
     parser.add_argument("-m", "--model_location", help="Location of the model")
     parser.add_argument("-e", "--experiment", help="Name of the experiment")
     parser.add_argument("-s", "--sequence", help="Name of the sequence")
-    parser.add_argument("-n", "--name", help="Filename to export")
 
     args = parser.parse_args()
 
@@ -31,21 +32,27 @@ if __name__ == "__main__":
 
     # we get the bounds by considering all frames
     positions_tensor = torch.cat([frame["means3D"] for frame in scene[0]])
-    min_point = (torch.floor(torch.min(positions_tensor, dim=0)[0]) - 1).cpu()
-    max_point = (torch.ceil(torch.max(positions_tensor, dim=0)[0]) + 1).cpu()
+    min_point = (torch.floor(torch.min(positions_tensor, dim=0)[0])).cpu()
+    max_point = (torch.ceil(torch.max(positions_tensor, dim=0)[0])).cpu()
 
     x_bins, y_bins, z_bins = (max_point - min_point) / voxel_size
     x_bins, y_bins, z_bins = int(x_bins), int(y_bins), int(z_bins)
 
     deformation_field = torch.zeros((frames, x_bins + 1, y_bins + 1, z_bins + 1, 3))
 
-    for t in tqdm(range(frames - 1)):
-        positions_current = scene[0][t]["means3D"].cpu()
-        positions_next = scene[0][t + 1]["means3D"].cpu()
-        deformation_gradient = positions_next - positions_current
-        spatial_indices = ((positions_current - min_point) / voxel_size).int()
-        for pos_index, index in enumerate(spatial_indices):
-            i, j, k = index.cpu()
-            deformation_field[t][i][j][k] = deformation_gradient[pos_index]
+    first_positions = scene[0][0]["means3D"].cpu().numpy()
+    opaque_indices = (scene[0][0]["opacities"] > 0.9).flatten().cpu().numpy()
+    downsampled_gaussians = pcu.downsample_point_cloud_poisson_disk(first_positions[opaque_indices], 0.05, 500)
 
-    np.savez("output/deformations.npz", deformation_field)
+    np.savez("output/gaussian_centers.npz", first_positions[downsampled_gaussians])
+
+    trajectories = []
+    centers = []
+    for t in range(0, len(scene[0]) - 1):
+        curr_positions = scene[0][t]["means3D"].cpu().numpy()
+        next_positions = scene[0][t + 1]["means3D"].cpu().numpy()
+        trajectories.append((next_positions - curr_positions)[downsampled_gaussians])
+        centers.append(curr_positions[downsampled_gaussians])
+    trajectories = np.array(trajectories)
+    np.savez("output/trajectories.npz", trajectories)
+    np.savez("output/centers_in_time.npz", np.array(centers))

@@ -1,4 +1,4 @@
-import argparse
+import argpar
 
 import numpy as np
 import torch
@@ -77,8 +77,9 @@ class VoxelGrid3D:
 
 
 # TODO: Parallelize
-def calculate_occupancies(seq: str, experiment: str, model_loc: str, output_file=None, l0_voxel_size=0.25,
-                          l1_voxel_size=0.05) -> Meshes:
+
+def calculate_occupancies(seq: str, experiment: str, model_loc: str, output_file=None, l0_voxel_size=0.1,
+                          l1_voxel_size=0.025) -> Meshes:
     """
     Impementation of the method from DreamGaussian by Tang, Jiaxiang, et al. 2023
     :param seq: Name of the sequence

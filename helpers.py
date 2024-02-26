@@ -139,3 +139,21 @@ def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_
     if remove_background:
         is_fg = is_fg[is_fg]
     return scene_data, is_fg
+
+
+def get_volume(centers):
+    AABB_min = torch.min(centers, axis=-2)[0]
+    AABB_max = torch.max(centers, axis=-2)[0]
+    return torch.prod(AABB_max - AABB_min)
+
+
+def get_entropies(centers):
+    xs = centers[:, 0]
+    ys = centers[:, 1]
+    zs = centers[:, 2]
+
+    xs = (xs - torch.min(xs)) / (torch.max(xs) - torch.min(xs)) + 1e-7
+    ys = (ys - torch.min(ys)) / (torch.max(ys) - torch.min(ys)) + 1e-7
+    zs = (zs - torch.min(zs)) / (torch.max(zs) - torch.min(zs)) + 1e-7
+
+    return -torch.sum(torch.log(xs) * xs), -torch.sum(torch.log(ys) * ys), -torch.sum(torch.log(zs) * zs)

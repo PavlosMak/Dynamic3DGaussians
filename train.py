@@ -16,7 +16,7 @@ from external import calc_ssim, calc_psnr, build_rotation, densify, update_param
 from helpers import setup_camera, l1_loss_v1, l1_loss_masked, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, \
     opacity_loss, opacity_entropy_loss, \
     quat_mult, \
-    o3d_knn, params2rendervar, params2cpu, save_params
+    o3d_knn, params2rendervar, params2cpu, save_params, get_volume, get_entropies
 
 
 def get_dataset(t, md, seq, data_dir: str):
@@ -43,7 +43,7 @@ def get_batch(todo_dataset, dataset):
     if not todo_dataset:
         todo_dataset = dataset.copy()
     curr_data = todo_dataset.pop(randint(0, len(todo_dataset) - 1))
-    return curr_data
+    return curr_data, todo_dataset
 
 
 def initialize_params(seq, md, data_dir: str):
@@ -108,8 +108,8 @@ def get_loss(params, curr_data, variables, is_initial_timestep):
     seg, _, _, = Renderer(raster_settings=curr_data['cam'])(**segrendervar)
     losses['seg'] = 0.8 * l1_loss_v1(seg, curr_data['seg']) + 0.2 * (1.0 - calc_ssim(seg, curr_data['seg']))
 
+    is_fg = (params['seg_colors'][:, 0] > 0.5).detach()
     if not is_initial_timestep:
-        is_fg = (params['seg_colors'][:, 0] > 0.5).detach()
         fg_pts = rendervar['means3D'][is_fg]
         fg_rot = rendervar['rotations'][is_fg]
 
@@ -133,10 +133,27 @@ def get_loss(params, curr_data, variables, is_initial_timestep):
         bg_rot = rendervar['rotations'][~is_fg]
         losses['bg'] = l1_loss_v2(bg_pts, variables["init_bg_pts"]) + l1_loss_v2(bg_rot, variables["init_bg_rot"])
 
+        initial_volume = variables["init_volume"]
+        current_volume = get_volume(fg_pts)
+        losses["volume"] = (initial_volume - current_volume) ** 2
+
+        velocity_magnitudes = torch.linalg.norm(params["means3D"][is_fg] - variables["prev_pts"][is_fg], axis=-1)
+        losses["velocity"] = torch.mean(velocity_magnitudes)
+        losses["displacement"] = torch.sum(velocity_magnitudes > 0.001)
+
+        losses["variance"] = torch.sum(torch.var(params["means3D"][is_fg], axis=0) - variables["init_variance"])
+
         losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
 
+        entropy_x, entropy_y, entropy_z = get_entropies(params["means3D"][is_fg])
+        losses['entropy_x'] = (entropy_x - variables["init_entropy_x"]) ** 2
+        losses['entropy_y'] = (entropy_y - variables["init_entropy_y"]) ** 2
+        losses['entropy_z'] = (entropy_z - variables["init_entropy_z"]) ** 2
+
     loss_weights = {'im': 1.0, 'seg': 3.0, 'rigid': 4.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
-                    'soft_col_cons': 0.01, 'opacity': 0.0}
+                    'soft_col_cons': 0.01, 'opacity': 0.0, "volume": 0.0, "velocity": 0.0, "displacement": 0.0,
+                    "variance": 0.0, "entropy_x": 0.0, "entropy_y": 0.0, "entropy_z": 0.0}
+
     wandb.log(losses)
     loss = sum([loss_weights[k] * v for k, v in losses.items()])
     seen = radius > 0
@@ -176,6 +193,7 @@ def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
     neighbor_sq_dist, neighbor_indices = o3d_knn(init_fg_pts.detach().cpu().numpy(), num_knn)
     neighbor_weight = np.exp(-2000 * neighbor_sq_dist)
     neighbor_dist = np.sqrt(neighbor_sq_dist)
+
     variables["neighbor_indices"] = torch.tensor(neighbor_indices).cuda().long().contiguous()
     variables["neighbor_weight"] = torch.tensor(neighbor_weight).cuda().float().contiguous()
     variables["neighbor_dist"] = torch.tensor(neighbor_dist).cuda().float().contiguous()
@@ -184,6 +202,17 @@ def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
     variables["init_bg_rot"] = init_bg_rot.detach()
     variables["prev_pts"] = params['means3D'].detach()
     variables["prev_rot"] = torch.nn.functional.normalize(params['unnorm_rotations']).detach()
+
+    variables["init_volume"] = get_volume(init_fg_pts).detach()
+    variables["init_mean"] = torch.mean(init_fg_pts).detach()
+    variables["init_variance"] = torch.var(init_fg_pts, axis=0).detach()
+
+    entropy_x, entropy_y, entropy_z = get_entropies(init_fg_pts)
+    variables["init_entropy_x"] = entropy_x.detach()
+    variables["init_entropy_y"] = entropy_y.detach()
+    variables["init_entropy_z"] = entropy_z.detach()
+
+    # params_to_fix = ['logit_opacities', 'log_scales', 'cam_m', 'cam_c', "rgb_colors"]
     params_to_fix = ['logit_opacities', 'log_scales', 'cam_m', 'cam_c']
     for param_group in optimizer.param_groups:
         if param_group["name"] in params_to_fix:
@@ -232,7 +261,7 @@ def train(seq, exp, args: argparse.Namespace):
         num_iter_per_timestep = args.initial_iters if is_initial_timestep else args.rest_iters
         progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
         for i in range(num_iter_per_timestep):
-            curr_data = get_batch(todo_dataset, dataset)
+            curr_data, todo_dataset = get_batch(todo_dataset, dataset)
             loss, variables = get_loss(params, curr_data, variables, is_initial_timestep)
             loss.backward()
             with torch.no_grad():
@@ -241,7 +270,7 @@ def train(seq, exp, args: argparse.Namespace):
                     params, variables = densify(params, variables, optimizer, i)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
-            if is_initial_timestep and i == num_iter_per_timestep - 1:
+            if i == num_iter_per_timestep - 1:
                 wandb.log({"gaussian centers": wandb.Object3D(
                     np.concatenate(
                         (np.array(params["means3D"].tolist()), 255 * np.array(params["rgb_colors"].tolist())),

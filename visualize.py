@@ -16,7 +16,8 @@ near, far = 0.01, 100.0
 view_scale = 3.9
 fps = 20
 traj_frac = 25  # 4% of points
-traj_length = 15
+# traj_length = 15
+traj_length = 2
 def_pix = torch.tensor(
     np.stack(np.meshgrid(np.arange(w) + 0.5, np.arange(h) + 0.5, 1), -1).reshape(-1, 3)).cuda().float()
 pix_ones = torch.ones(h * w, 1).cuda().float()
