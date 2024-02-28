@@ -1,19 +1,10 @@
 import argparse
 
 import numpy as np
+import point_cloud_utils as pcu
 import torch
-from pytorch3d.structures import Meshes
-from pytorch3d.transforms import quaternion_to_matrix
-from tqdm import tqdm
 
 from helpers import load_scene_data
-
-from skimage import measure
-import open3d as o3d
-
-from scipy.ndimage import gaussian_filter
-
-import point_cloud_utils as pcu
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Mesh extraction from Dynamic 3D Gaussian model")
