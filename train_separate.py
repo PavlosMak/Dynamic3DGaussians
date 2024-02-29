@@ -15,13 +15,6 @@ from train import initialize_params, initialize_optimizer, get_dataset, log_data
 
 def save_params(output_params, seq, exp, output_dir: str):
     to_save = {}
-    # for k in output_params[0].keys():
-    #     if len(output_params) > 1 and k in output_params[1].keys():
-    #         to_save[k] = [params[k] for params in output_params]
-    #     else:
-    #         to_save[k] = output_params[0][k]
-    # os.makedirs(f"{output_dir}/{exp}/{seq}", exist_ok=True)
-    # np.savez(f"{output_dir}/{exp}/{seq}/params", **to_save)
     for t, params in enumerate(output_params):
         to_save[t] = {p : np.array(params[p]) for p in params}
     os.makedirs(f"{output_dir}/{exp}/{seq}", exist_ok=True)

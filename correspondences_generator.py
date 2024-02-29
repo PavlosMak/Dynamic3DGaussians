@@ -54,6 +54,7 @@ if __name__ == "__main__":
 
         cross_frame_correspondences = []
         start_total = time.time()
+        frame_count = 2
         for frame in range(frame_count - 1):
             print(f"Registering {frame} to {frame + 1}")
             source = data[frame]["means3D"][indices[frame]]

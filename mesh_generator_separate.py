@@ -25,27 +25,16 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # TODO: Clean this up - Potentially extract the entire thing to a different repo
     output_file = f"/home/pavlos/Desktop/stuff/Uni-Masters/thesis/jupyters/data/volume_3000init.npz"
     load = True
-    if load:
 
-        # Load in and preprocess the data
-        scene = load_scene_data(args.sequence, args.experiment, False,
-                                args.model_location)
-        moment = scene[0][0]
+    path_to_data = f"{args.model_location}/{args.experiment}/{args.sequence}/params.npz"
+    data = np.load(path_to_data, allow_pickle=True)["arr_0"].tolist()
 
-        centers = moment["means3D"].cpu()
-        rotations = moment["rotations"].cpu()  # quaternions
-        scales = moment["scales"].cpu()  # [sx, sy, sz] vectors
-        opacities = moment["opacities"].cpu()
+    centers = torch.tensor(data[0]["means3D"])
+    rotations = torch.nn.functional.normalize(torch.tensor(data[0]["unnorm_rotations"])).cpu()
+    scales = torch.exp(torch.tensor(data[0]["log_scales"])).cpu()
+    opacities = torch.sigmoid(torch.tensor(data[0]["logit_opacities"])).cpu()
 
-        occupancies = calculate_occupancies(centers, rotations, scales, opacities,
-                                            output_file)
-        np.savez(output_file, occupancies)
-    else:
-        occupancies = np.load(output_file)['arr_0']
-
-    occupancies_smoothed = gaussian_filter(occupancies, sigma=1.0)
-    np.savez(f"/home/pavlos/Desktop/stuff/Uni-Masters/thesis/jupyters/data/volume_3000init_smoothed.npz",
-             occupancies_smoothed)
+    occupancies = calculate_occupancies(centers, rotations, scales, opacities, output_file)
+    np.savez(output_file, occupancies)
