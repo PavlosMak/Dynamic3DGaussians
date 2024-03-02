@@ -1,4 +1,3 @@
-import tqdm
 from pycpd import DeformableRegistration
 import numpy as np
 import point_cloud_utils as pcu
@@ -12,8 +11,16 @@ import pywavefront
 
 from scipy.spatial import KDTree
 
-import torch
-from tqdm import tqdm
+import matplotlib.pyplot as plt
+
+
+def plot_histogram(data, bins=20, title="Histogram", xlabel="Values", ylabel="Frequency"):
+    plt.hist(data, bins=bins, edgecolor='black')
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid(True)
+    plt.show()
 
 
 class AnimatedMesh:
@@ -24,7 +31,7 @@ class AnimatedMesh:
         assert len(scene.meshes) == 1
         mesh = list(scene.meshes.values())[0]
         self.faces = mesh.faces
-        self.frames = [torch.tensor(scene.vertices)]
+        self.frames = [np.array(scene.vertices)]
         self.neighbors = defaultdict(set)
         for fi, face in enumerate(self.faces):
             v0, v1, v2 = face
@@ -62,28 +69,16 @@ class AnimatedMesh:
                 f.write('f {} {} {}\n'.format(face[0] + 1, face[1] + 1, face[2] + 1))
 
     def get_differential_coords(self, frame: int):
-        # diff_coords = torch.zeros_like(self.frames[0])
         diff_coords = []
         for i, v in enumerate(self.neighbors):
             valence = len(self.neighbors[v])
             point = self.frames[0][v]
-            d = torch.zeros(3)
+            d = np.zeros(3)
             for n in self.neighbors[v]:
                 d += point - self.frames[frame][n]
             d /= valence
             diff_coords.append(d)
-        return torch.stack(diff_coords)
-
-    def optimize_frame(self, frame: int):
-        positions = torch.nn.Parameter(self.frames[frame])
-        optimizer = torch.optim.Adam([positions], lr=0.3)
-        self.frames[frame] = positions
-        for t in tqdm(range(200)):
-            y = self.get_differential_coords(frame)
-            loss = 0.5 * torch.sum((y - self.initial_diff_coords) ** 2)
-            print(f"Loss: {loss.item()}")
-            loss.backward()
-            optimizer.step()
+        return np.array(diff_coords)
 
     def export_frames(self, output_path: str, mesh_name: str):
         output_path = f"{output_path}/{mesh_name}"
@@ -133,8 +128,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    path_to_mesh = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/generated_meshes/torus/torus_higher_res_small.obj"
-    mesh = AnimatedMesh(path_to_mesh)
+    path_to_source_mesh = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/generated_meshes/torus/torus_higher_res_small.obj"
+    source_mesh = AnimatedMesh(path_to_source_mesh)
+
+    path_to_target_mes = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/generated_meshes/torus/torus_target.obj"
+    target_mesh = AnimatedMesh(path_to_target_mes)
 
     print("Running")
     for seq in args.seq:
@@ -153,26 +151,36 @@ if __name__ == "__main__":
         cross_frame_correspondences = []
         start_total = time.time()
         frame_count = 2
+        confidences = []
         for frame in range(frame_count - 1):
             print(f"Registering {frame} to {frame + 1}")
-            source = np.copy(mesh.get_frame(frame))
+            source = np.copy(source_mesh.get_frame(frame))
+            np.savetxt(f"{output_path}/Y.txt", source, delimiter=",")
+            np.savetxt(f"{output_path}/faces.txt", np.array(source_mesh.faces), delimiter=",")
             # source = data[frame]["means3D"][indices[frame]]
             np.savez(f"{output_path}/test.npz", source)
             target = data[frame + 5]["means3D"][indices[frame + 5]]
             target = radius_outlier_removal(target)
             np.savez(f"{output_path}/target.npz", target)
+            # np.savetxt(f"{output_path}/X.txt", target, delimiter=",")
+            np.savetxt(f"{output_path}/X.txt", target_mesh.get_frame(0), delimiter=",")
             start_local = time.time()
             correspondences, reg, reg_results = get_correspondences(source, target)
             deformations = get_deformation_vectors(source, target, correspondences)
+            confidences = np.max(reg.P, axis=1)
+            confindexes = confidences > 0.006
             # reg.update_transform()
             # new = reg.transform_point_cloud(mesh.get_frame(frame))
-            mesh.add_frame(torch.tensor(source + deformations))
+            new = np.copy(source)
+            new[confindexes] += deformations[confindexes]
+            source_mesh.add_frame(np.array(new))
             print(f"Optimizing")
-            mesh.optimize_frame(frame + 1)
+            # mesh.optimize_frame(frame + 1)
             np.savez(f"{output_path}/output.npz", source + deformations)
             end_local = time.time()
             print(f"Frame registration took: {end_local - start_local} seconds")
         end_total = time.time()
+        # plot_histogram(confidences)
         print(f"Done registering - took {end_total - start_total} seconds")
 
-        mesh.export_frames(output_path, "torus")
+        source_mesh.export_frames(output_path, "torus")
