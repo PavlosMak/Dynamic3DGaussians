@@ -58,9 +58,8 @@ def opacity_loss(opacity_logits: torch.Tensor):
 
 
 def opacity_entropy_loss(opacity_logits: torch.Tensor):
-    exp = torch.exp(opacity_logits)
-    alphas = exp / (1 + exp)
-    log_alphas = torch.log2(alphas)
+    alphas = torch.sigmoid(opacity_logits)
+    log_alphas = torch.log2(alphas + 1e-8)
     return -torch.sum(alphas * log_alphas)
 
 

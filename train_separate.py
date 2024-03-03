@@ -16,9 +16,10 @@ from train import initialize_params, initialize_optimizer, get_dataset, log_data
 def save_params(output_params, seq, exp, output_dir: str):
     to_save = {}
     for t, params in enumerate(output_params):
-        to_save[t] = {p : np.array(params[p]) for p in params}
+        to_save[t] = {p: np.array(params[p]) for p in params}
     os.makedirs(f"{output_dir}/{exp}/{seq}", exist_ok=True)
     np.savez(f"{output_dir}/{exp}/{seq}/params", to_save)
+
 
 def train(seq, exp, args: argparse.Namespace):
     if os.path.exists(f"{args.output}/{exp}/{seq}"):
@@ -37,7 +38,8 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar = tqdm(range(args.initial_iters), desc=f"timestep {t}")
         for i in range(args.initial_iters):
             curr_data, todo_dataset = get_batch(todo_dataset, dataset)
-            loss, variables = get_loss(params, curr_data, variables, True)
+            use_entropy_loss = i > 1000
+            loss, variables = get_loss(params, curr_data, variables, True, use_entropy_loss)
             loss.backward()
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
@@ -52,7 +54,6 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar.close()
         output_params.append(params2cpu(params, True))
     save_params(output_params, seq, exp, args.output)
-
 
 
 if __name__ == "__main__":

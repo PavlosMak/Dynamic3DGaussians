@@ -70,7 +70,7 @@ def initialize_params(seq, md, data_dir: str):
                  'scene_radius': scene_radius,
                  'means2D_gradient_accum': torch.zeros(params['means3D'].shape[0]).cuda().float(),
                  'denom': torch.zeros(params['means3D'].shape[0]).cuda().float(),
-                 'split_into': 5}
+                 'split_into': 2}
     return params, variables
 
 
@@ -89,7 +89,7 @@ def initialize_optimizer(params, variables):
     return torch.optim.Adam(param_groups, lr=0.0, eps=1e-15)
 
 
-def get_loss(params, curr_data, variables, is_initial_timestep):
+def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss=False):
     losses = {}
 
     rendervar = params2rendervar(params)
@@ -99,8 +99,6 @@ def get_loss(params, curr_data, variables, is_initial_timestep):
     im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
     # losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
     losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
-    # losses['opacity'] = opacity_loss(params['logit_opacities'])
-    losses['opacity'] = opacity_entropy_loss(params['logit_opacities'])
     variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
 
     segrendervar = params2rendervar(params)
@@ -150,8 +148,13 @@ def get_loss(params, curr_data, variables, is_initial_timestep):
         losses['entropy_y'] = (entropy_y - variables["init_entropy_y"]) ** 2
         losses['entropy_z'] = (entropy_z - variables["init_entropy_z"]) ** 2
 
+    if use_entropy_loss:
+        losses['opacity'] = opacity_entropy_loss(params['logit_opacities'])
+    else:
+        losses['opacity'] = 0.0
+
     loss_weights = {'im': 1.0, 'seg': 3.0, 'rigid': 4.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
-                    'soft_col_cons': 0.01, 'opacity': 0.0, "volume": 0.0, "velocity": 0.0, "displacement": 0.0,
+                    'soft_col_cons': 0.01, 'opacity': 1.0, "volume": 0.0, "velocity": 0.0, "displacement": 0.0,
                     "variance": 0.0, "entropy_x": 0.0, "entropy_y": 0.0, "entropy_z": 0.0}
 
     wandb.log(losses)

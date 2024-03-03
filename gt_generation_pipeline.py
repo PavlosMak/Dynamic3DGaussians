@@ -11,8 +11,11 @@ import shutil
 import subprocess
 
 if __name__ == "__main__":
-    path_to_data = "/media/pavlos/One Touch/datasets/dynamic_3d_output/giddy-armadillo-192/torus/params.npz"
-    output_path = "/media/pavlos/One Touch/datasets/gt_generation/giddy-armadillo-192"
+    exp = "morning-cloud-226"
+    seq = "torus"
+
+    path_to_data = f"/media/pavlos/One Touch/datasets/gaussian_assets_output/{exp}/{seq}/params.npz"
+    output_path = f"/media/pavlos/One Touch/datasets/gt_generation/{exp}"
     data = np.load(path_to_data, allow_pickle=True)["arr_0"].tolist()
 
     overwrite_files = False
@@ -28,9 +31,8 @@ if __name__ == "__main__":
     #TODO Set the path to where tou have installed BCPD
     path_to_bcpd = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/bcpd/bcpd"
 
-    # TODO for now only on two frames
     iso_levels = [1.0] * len(data)
-    target_face_num = 6000
+    target_face_num = 500
     print(f"Generating ground truth for {len(data)} frames")
     for i, frame_id in tqdm(enumerate(data)):
         print(f"Generating Frame: {i+1}/{len(data)}")
@@ -41,6 +43,12 @@ if __name__ == "__main__":
         scales = torch.exp(torch.tensor(frame["log_scales"]))
         opacities = torch.sigmoid(torch.tensor(frame["logit_opacities"]))
 
+        opaque_mask = (opacities > 0.95).flatten()
+        centers = centers[opaque_mask]
+        rotations = rotations[opaque_mask]
+        scales = scales[opaque_mask]
+        opacities = opacities[opaque_mask]
+
         target_pcd_path = f"{output_path}/target_gaussian_pcds/target_{i}.txt"
         np.savetxt(target_pcd_path, centers.detach().cpu().numpy(), delimiter=",")
 
@@ -49,7 +57,7 @@ if __name__ == "__main__":
             occupancies = torch.load(occupancies_output_file)
         else:
             occupancies = calculate_occupancies(centers, rotations, scales, opacities,
-                                                output_file=occupancies_output_file)
+                                                output_file=occupancies_output_file, l1_voxel_size=0.025)
         # 2) Get the mesh
         mesh = mesh_extractor(occupancies.detach().cpu().numpy(), iso_levels[i])
         mesh_output_path = f"{output_path}/meshes/mesh_{i}.obj"
