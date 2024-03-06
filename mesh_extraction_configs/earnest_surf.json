@@ -1,0 +1,8 @@
+{
+  "exp": "earnest-surf-230",
+  "seq": "torus_v2",
+  "path_to_data": "/media/pavlos/One Touch/datasets/gaussian_assets_output",
+  "output_path": "/media/pavlos/One Touch/datasets/gt_generation",
+  "path_to_bcpd": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/bcpd/bcpd",
+  "iso": 0.005
+}

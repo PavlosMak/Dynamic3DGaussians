@@ -1,4 +1,7 @@
+import argparse
 from mesh_generation.mesh_generation import *
+
+import json
 
 import numpy as np
 import pymeshlab
@@ -11,16 +14,18 @@ import shutil
 import subprocess
 
 if __name__ == "__main__":
-    # exp = "morning-cloud-226"
-    # exp = "giddy-armadillo-192"
-    # seq = "torus"
-    exp = "earnest-surf-230"
-    seq = "torus_v2"
-    output_file = "gaussian_assets_output"
-    # output_file = "dynamic_3d_output"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str,
+                        help="Path to mesh extraction configuration variables")
+    args = parser.parse_args()
+    with open(args.config) as config_file:
+        config = json.load(config_file)
 
-    path_to_data = f"/media/pavlos/One Touch/datasets/{output_file}/{exp}/{seq}/params.npz"
-    output_path = f"/media/pavlos/One Touch/datasets/gt_generation/{exp}"
+    exp = config["exp"]
+    seq = config["seq"]
+
+    path_to_data = f"{config['path_to_data']}/{exp}/{seq}/params.npz"
+    output_path = f"{config['output_path']}/{exp}"
     data = np.load(path_to_data, allow_pickle=True)["arr_0"].tolist()
 
     overwrite_files = False
@@ -33,10 +38,9 @@ if __name__ == "__main__":
     os.makedirs(f"{output_path}/target_gaussian_pcds", exist_ok=True)
     os.makedirs(f"{output_path}/gt", exist_ok=True)
 
-    # TODO Set the path to where tou have installed BCPD
-    path_to_bcpd = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/bcpd/bcpd"
+    path_to_bcpd = config["path_to_bcpd"]
 
-    iso_levels = [0.005] * len(data)
+    iso_levels = [config["iso"]] * len(data)
     target_face_num = 500
     print(f"Generating ground truth for {len(data)} frames")
     for i, frame_id in tqdm(enumerate(data)):
