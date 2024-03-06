@@ -11,10 +11,15 @@ import shutil
 import subprocess
 
 if __name__ == "__main__":
-    exp = "morning-cloud-226"
-    seq = "torus"
+    # exp = "morning-cloud-226"
+    # exp = "giddy-armadillo-192"
+    # seq = "torus"
+    exp = "earnest-surf-230"
+    seq = "torus_v2"
+    output_file = "gaussian_assets_output"
+    # output_file = "dynamic_3d_output"
 
-    path_to_data = f"/media/pavlos/One Touch/datasets/gaussian_assets_output/{exp}/{seq}/params.npz"
+    path_to_data = f"/media/pavlos/One Touch/datasets/{output_file}/{exp}/{seq}/params.npz"
     output_path = f"/media/pavlos/One Touch/datasets/gt_generation/{exp}"
     data = np.load(path_to_data, allow_pickle=True)["arr_0"].tolist()
 
@@ -28,14 +33,14 @@ if __name__ == "__main__":
     os.makedirs(f"{output_path}/target_gaussian_pcds", exist_ok=True)
     os.makedirs(f"{output_path}/gt", exist_ok=True)
 
-    #TODO Set the path to where tou have installed BCPD
+    # TODO Set the path to where tou have installed BCPD
     path_to_bcpd = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/bcpd/bcpd"
 
-    iso_levels = [1.0] * len(data)
+    iso_levels = [0.005] * len(data)
     target_face_num = 500
     print(f"Generating ground truth for {len(data)} frames")
     for i, frame_id in tqdm(enumerate(data)):
-        print(f"Generating Frame: {i+1}/{len(data)}")
+        print(f"Generating Frame: {i + 1}/{len(data)}")
         # 1) Generate the occupancy grid
         frame = data[frame_id]
         centers = torch.tensor(frame["means3D"])
@@ -56,24 +61,33 @@ if __name__ == "__main__":
         if os.path.isfile(occupancies_output_file) and not overwrite_files:
             occupancies = torch.load(occupancies_output_file)
         else:
-            occupancies = calculate_occupancies(centers, rotations, scales, opacities,
-                                                output_file=occupancies_output_file, l1_voxel_size=0.025)
+            # occupancies = calculate_occupancies(centers, rotations, scales, opacities,
+            #                                     output_file=occupancies_output_file)
+            occupancies = calculate_occupancies_kd(centers, rotations, scales, opacities,
+                                                   output_file=occupancies_output_file, radius=0.05)
         # 2) Get the mesh
         mesh = mesh_extractor(occupancies.detach().cpu().numpy(), iso_levels[i])
         mesh_output_path = f"{output_path}/meshes/mesh_{i}.obj"
         o3d.io.write_triangle_mesh(mesh_output_path, mesh)
 
         # 3) Filter the mesh
+
         ms = pymeshlab.MeshSet()
-        ms.load_new_mesh(mesh_output_path)
-        ms.meshing_invert_face_orientation()
-        ms.apply_coord_hc_laplacian_smoothing()
-        ms.apply_coord_laplacian_smoothing()
-        ms.meshing_decimation_quadric_edge_collapse(targetfacenum=target_face_num)
-        ms.save_current_mesh(f"{output_path}/filtered_meshes/filtered_mesh_{i}.obj")
+        if not os.path.isfile(f"{output_path}/filtered_meshes/filtered_mesh_{i}.obj"):
+            ms.load_new_mesh(mesh_output_path)
+
+            ms.meshing_invert_face_orientation()
+            ms.apply_coord_hc_laplacian_smoothing()
+            ms.apply_coord_laplacian_smoothing()
+            ms.meshing_decimation_quadric_edge_collapse(targetfacenum=target_face_num)
+
+            ms.save_current_mesh(f"{output_path}/filtered_meshes/filtered_mesh_{i}.obj")
+            filtered_mesh_vertices = ms.current_mesh().vertex_matrix()
+        else:
+            ms.load_new_mesh(f"{output_path}/filtered_meshes/filtered_mesh_{i}.obj")
+            filtered_mesh_vertices = ms.current_mesh().vertex_matrix()
 
         # 4) Rigidly Register the mesh to the gaussian point cloud that created it
-        filtered_mesh_vertices = ms.current_mesh().vertex_matrix()
         filtered_vertices_pcd_path = f"{output_path}/filtered_meshes/vertex_pcds/source_{i}.txt"
         np.savetxt(filtered_vertices_pcd_path, filtered_mesh_vertices, delimiter=",")
 
