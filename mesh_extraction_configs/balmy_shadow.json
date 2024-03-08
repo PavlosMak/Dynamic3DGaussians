@@ -4,5 +4,6 @@
   "path_to_data": "../output/gaussian_assets_output",
   "output_path": "../output/gt_generation",
   "path_to_bcpd": "../bcpd/bcpd",
-  "iso": 0.005
+  "iso": 0.005,
+  "register_with_previous": true
 }

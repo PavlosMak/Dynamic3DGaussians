@@ -3,6 +3,7 @@ import os
 import open3d as o3d
 import numpy as np
 from diff_gaussian_rasterization import GaussianRasterizationSettings as Camera
+import matplotlib.pyplot as plt
 
 
 def setup_camera(w, h, k, w2c, near=0.01, far=100):
@@ -156,3 +157,27 @@ def get_entropies(centers):
     zs = (zs - torch.min(zs)) / (torch.max(zs) - torch.min(zs)) + 1e-7
 
     return -torch.sum(torch.log(xs) * xs), -torch.sum(torch.log(ys) * ys), -torch.sum(torch.log(zs) * zs)
+
+
+
+def plot_histogram(data, bins=10, xlabel="Values", ylabel="Frequency", title="Histogram", save=""):
+    """
+    Plots a histogram from a list of data.
+
+    Parameters:
+    - data: List of numerical data.
+    - bins: Number of bins for the histogram. Default is 10.
+    - xlabel: Label for the x-axis. Default is "Values".
+    - ylabel: Label for the y-axis. Default is "Frequency".
+    - title: Title of the histogram plot. Default is "Histogram".
+    """
+    plt.hist(data, bins=bins, color='skyblue', edgecolor='black')
+    plt.xlabel(xlabel)
+    plt.xlim(0)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.grid(True)
+    if len(save) == 0:
+        plt.show()
+    else:
+        plt.savefig(save)

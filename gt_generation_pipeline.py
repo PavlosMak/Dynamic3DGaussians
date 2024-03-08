@@ -115,6 +115,8 @@ if __name__ == "__main__":
         os.chdir(f"{output_path}/gt")
         target_path = f"{output_path}/filtered_meshes/registered_vertices/registered_source_{i}.txt"
         source_path = f"{output_path}/gt/gt_{i - 1}.txt"
+        if not config["register_with_previous"]:
+            source_path = f"{output_path}/gt/gt_0.txt"
         subprocess.call([path_to_bcpd, "-x", target_path, "-y", source_path])
         os.rename(f"{output_path}/gt/output_y.txt",
                   f"{output_path}/gt/gt_{i}.txt")

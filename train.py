@@ -16,7 +16,7 @@ from external import calc_ssim, calc_psnr, build_rotation, densify, update_param
 from helpers import setup_camera, l1_loss_v1, l1_loss_masked, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, \
     opacity_loss, opacity_entropy_loss, \
     quat_mult, \
-    o3d_knn, params2rendervar, params2cpu, save_params, get_volume, get_entropies
+    o3d_knn, params2rendervar, params2cpu, save_params, get_volume, get_entropies, plot_histogram
 
 
 def get_dataset(t, md, seq, data_dir: str):
@@ -248,6 +248,7 @@ def train(seq, exp, args: argparse.Namespace):
     if os.path.exists(f"{args.output}/{exp}/{seq}"):
         print(f"Experiment '{exp}' for sequence '{seq}' already exists. Exiting.")
         return
+    os.makedirs(f"{args.output}/{exp}/{seq}")
     md = json.load(open(f"{args.data}/{seq}/train_meta.json", 'r'))  # metadata
     num_timesteps = len(md['fn'])
     num_timesteps = min(num_timesteps, args.timesteps)
@@ -265,7 +266,9 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
         for i in range(num_iter_per_timestep):
             curr_data, todo_dataset = get_batch(todo_dataset, dataset)
-            loss, variables = get_loss(params, curr_data, variables, is_initial_timestep)
+            use_entropy_loss = i > 1000 and t == 0
+            loss, variables = get_loss(params, curr_data, variables, is_initial_timestep,
+                                       use_entropy_loss=use_entropy_loss)
             loss.backward()
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
@@ -274,10 +277,14 @@ def train(seq, exp, args: argparse.Namespace):
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:
+                opacities = torch.sigmoid(params["logit_opacities"].clone().detach()).flatten().tolist()
+                plot_histogram(opacities, xlabel="opacity", title=f"Opacity counts - frame {t}",
+                               save=f"{args.output}/{exp}/{seq}/frame_{t}.pdf")
                 wandb.log({"gaussian centers": wandb.Object3D(
                     np.concatenate(
                         (np.array(params["means3D"].tolist()), 255 * np.array(params["rgb_colors"].tolist())),
                         axis=1))})
+
         progress_bar.close()
         output_params.append(params2cpu(params, is_initial_timestep))
         if is_initial_timestep:
