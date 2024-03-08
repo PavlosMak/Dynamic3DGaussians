@@ -12,7 +12,7 @@ from PIL import Image
 from diff_gaussian_rasterization import GaussianRasterizer as Renderer
 from tqdm import tqdm
 
-from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer
+from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer, remove_transparent
 from helpers import setup_camera, l1_loss_v1, l1_loss_masked, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, \
     opacity_loss, opacity_entropy_loss, \
     quat_mult, \
@@ -266,20 +266,22 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
         for i in range(num_iter_per_timestep):
             curr_data, todo_dataset = get_batch(todo_dataset, dataset)
-            use_entropy_loss = i > 1000 and t == 0
+            # use_entropy_loss = i > 1000 and t == 0
             loss, variables = get_loss(params, curr_data, variables, is_initial_timestep,
-                                       use_entropy_loss=use_entropy_loss)
+                                       use_entropy_loss=False)
             loss.backward()
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
                     params, variables = densify(params, variables, optimizer, i)
+                if is_initial_timestep and i >= 9000:
+                    params, variables = remove_transparent(params, variables, optimizer, i, threshold=0.991)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:
                 opacities = torch.sigmoid(params["logit_opacities"].clone().detach()).flatten().tolist()
                 plot_histogram(opacities, xlabel="opacity", title=f"Opacity counts - frame {t}",
-                               save=f"{args.output}/{exp}/{seq}/frame_{t}.pdf")
+                               save=f"{args.output}/{exp}/{seq}/frame_{t}.pdf", bins=100)
                 wandb.log({"gaussian centers": wandb.Object3D(
                     np.concatenate(
                         (np.array(params["means3D"].tolist()), 255 * np.array(params["rgb_colors"].tolist())),

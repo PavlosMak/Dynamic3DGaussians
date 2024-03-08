@@ -160,6 +160,15 @@ def remove_points(to_remove, params, variables, optimizer):
 def inverse_sigmoid(x):
     return torch.log(x / (1 - x))
 
+def remove_transparent(params, variables, optimizer, i, threshold=0.9):
+        if i % 100 == 0:
+            to_remove = (torch.sigmoid(params['logit_opacities']) < threshold).squeeze()
+            # print(f"Removing 0.9 lower opacities {len(to_remove)}")
+
+            params, variables = remove_points(to_remove, params, variables, optimizer)
+            
+            torch.cuda.empty_cache()
+        return params, variables
 
 def densify(params, variables, optimizer, i):
     if i <= 5000:
@@ -195,13 +204,13 @@ def densify(params, variables, optimizer, i):
             variables['max_2D_radius'] = torch.zeros(num_pts, device="cuda")
             to_remove = torch.cat((to_split, torch.zeros(n * to_split.sum(), dtype=torch.bool, device="cuda")))
             params, variables = remove_points(to_remove, params, variables, optimizer)
-
-            # remove_threshold = 0.25 if i == 5000 else 0.005
-            remove_threshold = 0.25 if i >= 1500 else 0.005
+            
+            remove_threshold = 0.25 if i == 5000 else 0.005
             to_remove = (torch.sigmoid(params['logit_opacities']) < remove_threshold).squeeze()
             if i >= 3000:
                 big_points_ws = torch.exp(params['log_scales']).max(dim=1).values > 0.1 * variables['scene_radius']
                 to_remove = torch.logical_or(to_remove, big_points_ws)
+            
             params, variables = remove_points(to_remove, params, variables, optimizer)
 
             torch.cuda.empty_cache()
