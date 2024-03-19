@@ -161,6 +161,13 @@ def inverse_sigmoid(x):
     return torch.log(x / (1 - x))
 
 
+def remove_transparent(params, variables, optimizer, remove_threshold=0.99):
+    to_remove = (torch.sigmoid(params['logit_opacities']) < remove_threshold).squeeze()
+    print(f"Removing: {len(to_remove)}")
+    params, variables = remove_points(to_remove, params, variables, optimizer)
+    return params, variables
+
+
 def densify(params, variables, optimizer, i):
     if i <= 5000:
         variables = accumulate_mean2d_gradient(variables)

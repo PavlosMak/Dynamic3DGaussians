@@ -12,7 +12,7 @@ from PIL import Image
 from diff_gaussian_rasterization import GaussianRasterizer as Renderer
 from tqdm import tqdm
 
-from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer
+from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer, remove_transparent
 from helpers import setup_camera, l1_loss_v1, l1_loss_masked, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, \
     opacity_loss, opacity_entropy_loss, \
     quat_mult, \
@@ -97,8 +97,8 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     im, radius, _, = Renderer(raster_settings=curr_data['cam'])(**rendervar)
     curr_id = curr_data['id']
     im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
-    # losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
-    losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+    losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
+    # losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
     variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
 
     segrendervar = params2rendervar(params)
@@ -153,7 +153,7 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     else:
         losses['opacity'] = 0.0
 
-    loss_weights = {'im': 1.0, 'seg': 3.0, 'rigid': 4.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
+    loss_weights = {'im': 40.0, 'seg': 3.0, 'rigid': 2.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
                     'soft_col_cons': 0.01, 'opacity': 1.0, "volume": 0.0, "velocity": 0.0, "displacement": 0.0,
                     "variance": 0.0, "entropy_x": 0.0, "entropy_y": 0.0, "entropy_z": 0.0}
 
@@ -216,7 +216,7 @@ def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
     variables["init_entropy_z"] = entropy_z.detach()
 
     # params_to_fix = ['logit_opacities', 'log_scales', 'cam_m', 'cam_c', "rgb_colors"]
-    params_to_fix = ['logit_opacities', 'log_scales', 'cam_m', 'cam_c']
+    params_to_fix = ['logit_opacities', 'log_scales', 'cam_m', 'cam_c', "rgb_colors"]
     for param_group in optimizer.param_groups:
         if param_group["name"] in params_to_fix:
             param_group['lr'] = 0.0
@@ -266,20 +266,20 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar = tqdm(range(num_iter_per_timestep), desc=f"timestep {t}")
         for i in range(num_iter_per_timestep):
             curr_data, todo_dataset = get_batch(todo_dataset, dataset)
-            use_entropy_loss = i > 1000 and t == 0
-            loss, variables = get_loss(params, curr_data, variables, is_initial_timestep,
-                                       use_entropy_loss=use_entropy_loss)
+            loss, variables = get_loss(params, curr_data, variables, is_initial_timestep)
             loss.backward()
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
                     params, variables = densify(params, variables, optimizer, i)
+                    if i == num_iter_per_timestep - 1:
+                        params, variables = remove_transparent(params, variables, optimizer)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:
                 opacities = torch.sigmoid(params["logit_opacities"].clone().detach()).flatten().tolist()
                 plot_histogram(opacities, xlabel="opacity", title=f"Opacity counts - frame {t}",
-                               save=f"{args.output}/{exp}/{seq}/frame_{t}.pdf")
+                               save=f"{args.output}/{exp}/{seq}/frame_{t}.pdf", bins=500)
                 wandb.log({"gaussian centers": wandb.Object3D(
                     np.concatenate(
                         (np.array(params["means3D"].tolist()), 255 * np.array(params["rgb_colors"].tolist())),

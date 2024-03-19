@@ -160,7 +160,7 @@ def get_entropies(centers):
 
 
 
-def plot_histogram(data, bins=10, xlabel="Values", ylabel="Frequency", title="Histogram", save=""):
+def plot_histogram(data, bins=500, xlabel="Values", ylabel="Frequency", title="Histogram", save=""):
     """
     Plots a histogram from a list of data.
 
