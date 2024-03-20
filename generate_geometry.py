@@ -7,8 +7,8 @@ from helpers import load_scene_data
 from mesh_generation.mesh_generation import calculate_occupancies, mesh_extractor
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-exp = "fearless-microwave-275"
-seq = "torus"
+exp = "royal-field-365"
+seq = "thinner_torus_red"
 
 if __name__ == "__main__":
     scene_data, is_fg = load_scene_data(seq, exp, False, model_location)
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     scales = scales[select_indices].cpu()
     opacities = opacities[select_indices].cpu()
 
-    output_path = "/media/pavlos/One Touch/datasets/gt_generation/fearless-microwave"
+    output_path = "/media/pavlos/One Touch/datasets/gt_generation/royal-field"
     occupancies_output = f"{output_path}/occupancies.pt"
     if os.path.isfile(occupancies_output):
         occupancies = torch.load(occupancies_output)

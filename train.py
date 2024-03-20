@@ -80,7 +80,7 @@ def initialize_params(seq, md, data_dir: str):
 def initialize_optimizer(params, variables):
     lrs = {
         # 'means3D': 0.00016 * variables['scene_radius'],
-        'means3D': 0.001 * variables['scene_radius'],
+        'means3D': 0.0002 * variables['scene_radius'],
         'rgb_colors': 0.0025,
         'seg_colors': 0.0,
         'unnorm_rotations': 0.001,
@@ -273,6 +273,7 @@ def train(seq, exp, args: argparse.Namespace):
         progress_bar.close()
         output_params.append(params2cpu(params, is_initial_timestep))
         if is_initial_timestep:
+            print(f"Optimized first frame with {len(params['means3D'])} Gaussians.")
             variables = initialize_post_first_timestep(params, variables, optimizer)
     save_params(output_params, seq, exp, args.output)
 

@@ -165,6 +165,7 @@ def remove_transparent(params, variables, optimizer, remove_threshold=0.99):
     to_remove = (torch.sigmoid(params['logit_opacities']) < remove_threshold).squeeze()
     print(f"Removing: {len(to_remove)}")
     params, variables = remove_points(to_remove, params, variables, optimizer)
+    print(f"Removed: {len(to_remove)}")
     return params, variables
 
 
