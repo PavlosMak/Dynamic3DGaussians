@@ -63,6 +63,12 @@ def initialize_params(seq, md, data_dir: str):
               params.items()}
     cam_centers = np.linalg.inv(md['w2c'][0])[:, :3, 3]  # Get scene radius
     scene_radius = 1.1 * np.max(np.linalg.norm(cam_centers - np.mean(cam_centers, 0)[None], axis=-1))
+
+    min_point = np.min(init_pt_cld[:, :3], axis=0)
+    max_point = np.max(init_pt_cld[:, :3], axis=0)
+    half_extends = 0.5 * (max_point - min_point)
+    scene_radius = np.max(half_extends)
+
     variables = {'max_2D_radius': torch.zeros(params['means3D'].shape[0]).cuda().float(),
                  'scene_radius': scene_radius,
                  'means2D_gradient_accum': torch.zeros(params['means3D'].shape[0]).cuda().float(),
@@ -73,7 +79,8 @@ def initialize_params(seq, md, data_dir: str):
 
 def initialize_optimizer(params, variables):
     lrs = {
-        'means3D': 0.00016 * variables['scene_radius'],
+        # 'means3D': 0.00016 * variables['scene_radius'],
+        'means3D': 0.001 * variables['scene_radius'],
         'rgb_colors': 0.0025,
         'seg_colors': 0.0,
         'unnorm_rotations': 0.001,
@@ -95,8 +102,8 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     curr_id = curr_data['id']
     im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
     # losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
-    # losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
-    losses['im'] = l2_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+    losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+    # losses['im'] = l2_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
 
     variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
 
@@ -129,8 +136,6 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
         bg_pts = rendervar['means3D'][~is_fg]
         bg_rot = rendervar['rotations'][~is_fg]
         losses['bg'] = l1_loss_v2(bg_pts, variables["init_bg_pts"]) + l1_loss_v2(bg_rot, variables["init_bg_rot"])
-
-        losses["variance"] = torch.sum(torch.var(params["means3D"][is_fg], axis=0) - variables["init_variance"])
 
         losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
 
