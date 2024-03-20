@@ -13,10 +13,7 @@ from diff_gaussian_rasterization import GaussianRasterizer as Renderer
 from tqdm import tqdm
 
 from external import calc_ssim, calc_psnr, build_rotation, densify, update_params_and_optimizer, remove_transparent
-from helpers import setup_camera, l1_loss_v1, l1_loss_masked, l1_loss_v2, weighted_l2_loss_v1, weighted_l2_loss_v2, \
-    opacity_loss, opacity_entropy_loss, \
-    quat_mult, \
-    o3d_knn, params2rendervar, params2cpu, save_params, get_volume, get_entropies, plot_histogram
+from helpers import *
 
 
 def get_dataset(t, md, seq, data_dir: str):
@@ -97,8 +94,10 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     im, radius, _, = Renderer(raster_settings=curr_data['cam'])(**rendervar)
     curr_id = curr_data['id']
     im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
-    losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
+    # losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
     # losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+    losses['im'] = l2_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+
     variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
 
     segrendervar = params2rendervar(params)
@@ -131,31 +130,12 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
         bg_rot = rendervar['rotations'][~is_fg]
         losses['bg'] = l1_loss_v2(bg_pts, variables["init_bg_pts"]) + l1_loss_v2(bg_rot, variables["init_bg_rot"])
 
-        initial_volume = variables["init_volume"]
-        current_volume = get_volume(fg_pts)
-        losses["volume"] = (initial_volume - current_volume) ** 2
-
-        velocity_magnitudes = torch.linalg.norm(params["means3D"][is_fg] - variables["prev_pts"][is_fg], axis=-1)
-        losses["velocity"] = torch.mean(velocity_magnitudes)
-        losses["displacement"] = torch.sum(velocity_magnitudes > 0.001)
-
         losses["variance"] = torch.sum(torch.var(params["means3D"][is_fg], axis=0) - variables["init_variance"])
 
         losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
 
-        entropy_x, entropy_y, entropy_z = get_entropies(params["means3D"][is_fg])
-        losses['entropy_x'] = (entropy_x - variables["init_entropy_x"]) ** 2
-        losses['entropy_y'] = (entropy_y - variables["init_entropy_y"]) ** 2
-        losses['entropy_z'] = (entropy_z - variables["init_entropy_z"]) ** 2
-
-    if use_entropy_loss:
-        losses['opacity'] = opacity_entropy_loss(params['logit_opacities'])
-    else:
-        losses['opacity'] = 0.0
-
-    loss_weights = {'im': 40.0, 'seg': 3.0, 'rigid': 2.0, 'rot': 4.0, 'iso': 2.0, 'floor': 2.0, 'bg': 20.0,
-                    'soft_col_cons': 0.01, 'opacity': 1.0, "volume": 0.0, "velocity": 0.0, "displacement": 0.0,
-                    "variance": 0.0, "entropy_x": 0.0, "entropy_y": 0.0, "entropy_z": 0.0}
+    loss_weights = {'im': 70.0, 'seg': 3.0, 'rigid': 15.0, 'rot': 4.0, 'iso': 20, 'floor': 2.0, 'bg': 20.0,
+                    'soft_col_cons': 0.01}
 
     wandb.log(losses)
     loss = sum([loss_weights[k] * v for k, v in losses.items()])

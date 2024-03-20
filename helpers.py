@@ -52,6 +52,10 @@ def l1_loss_masked(x, y, mask: torch.Tensor):
     return torch.abs((x - y)).sum() / torch.count_nonzero(mask)
 
 
+def l2_loss_masked(x, y, mask: torch.Tensor):
+    return torch.sqrt((x - y) ** 2).sum() / torch.count_nonzero(mask)
+
+
 def opacity_loss(opacity_logits: torch.Tensor):
     exp = torch.exp(opacity_logits)
     alphas = exp / (1 + exp)
@@ -157,7 +161,6 @@ def get_entropies(centers):
     zs = (zs - torch.min(zs)) / (torch.max(zs) - torch.min(zs)) + 1e-7
 
     return -torch.sum(torch.log(xs) * xs), -torch.sum(torch.log(ys) * ys), -torch.sum(torch.log(zs) * zs)
-
 
 
 def plot_histogram(data, bins=500, xlabel="Values", ylabel="Frequency", title="Histogram", save=""):
