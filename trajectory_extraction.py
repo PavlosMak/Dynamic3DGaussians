@@ -17,8 +17,16 @@ if __name__ == "__main__":
         positions.append(centers)
     positions = np.array(positions)
 
-    output_folder = "/media/pavlos/One Touch/datasets/gt_generation/royal-field"
-    np.savez(f"{output_folder}/pseudo_gt_positions.npz", positions)
-    with open(f"{output_folder}/first_frame.obj", "w") as f:
-        for point in positions[0]:
-            f.write(f"v {point[0]} {point[1]} {point[2]}\n")
+    output_mesh = False
+
+    if output_mesh:
+        output_folder = "/media/pavlos/One Touch/datasets/gt_generation/royal-field"
+        np.savez(f"{output_folder}/pseudo_gt_positions_verify.npz", positions)
+        with open(f"{output_folder}/first_frame.obj", "w") as f:
+            for point in positions[0]:
+                f.write(f"v {point[0]} {point[1]} {point[2]}\n")
+    else:
+        output_folder = "/media/pavlos/One Touch/datasets/gt_generation/royal-field/trajectories"
+        for fi, frame_positions in enumerate(positions):
+            output_path = f"{output_folder}/target_{fi}.txt"
+            np.savetxt(output_path, frame_positions, delimiter=",")

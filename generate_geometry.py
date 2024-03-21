@@ -28,13 +28,13 @@ if __name__ == "__main__":
     opacities = opacities[select_indices].cpu()
 
     output_path = "/media/pavlos/One Touch/datasets/gt_generation/royal-field"
-    occupancies_output = f"{output_path}/occupancies.pt"
+    occupancies_output = f"{output_path}/occupancies_higher_res.pt"
     if os.path.isfile(occupancies_output):
         occupancies = torch.load(occupancies_output)
     else:
         occupancies = calculate_occupancies(centers, rotations, scales, opacities,
                                             output_file=occupancies_output)
 
-    mesh = mesh_extractor(occupancies.detach().cpu().numpy(), 0.5)
+    mesh = mesh_extractor(occupancies.detach().cpu().numpy(), 0.0008)
     mesh_output_path = f"{output_path}/generated_mesh.obj"
     o3d.io.write_triangle_mesh(mesh_output_path, mesh)
