@@ -14,21 +14,23 @@ def call_bcpd(output_dir, target, source, output_name="output_y.txt"):
     os.chdir(starting_path)
 
 
-base_path = "/media/pavlos/One Touch/datasets/gt_generation/royal-field"
+frame_count = 20
+
+base_path = "/media/pavlos/One Touch/datasets/gt_generation/magic-salad"
 
 path_to_bcpd = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/bcpd/bcpd"
 
 path_to_targets = f"{base_path}/trajectories"
 
-targets = [f"{path_to_targets}/target_{i}.txt" for i in range(0, 7)]
+targets = [f"{path_to_targets}/target_{i}.txt" for i in range(0, frame_count)]
+
+source = f"{base_path}/tetrahedrals/surface_points.txt"
 
 # GENERATE SOURCE FROM MESH
 # ms = pymeshlab.MeshSet()
 # ms.load_new_mesh("/media/pavlos/One Touch/datasets/gt_generation/royal-field/meshing/clean_mesh.obj")
 # source_verts = ms.current_mesh().vertex_matrix()
 # np.savetxt(source, source_verts, delimiter=",")
-
-source = f"{base_path}/source.txt"
 
 slide_mesh = True
 
@@ -39,7 +41,7 @@ for i, target in enumerate(targets):
               output_name=f"registered_{i}.txt")
 
 registered_results = [f"{base_path}/registered/registered_{i}.txt" for i
-                      in range(0, 7)]
+                      in range(0, frame_count)]
 
 registered_positions = []
 for registered in registered_results:
