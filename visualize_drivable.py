@@ -109,8 +109,8 @@ def rgbd2pcd(im, depth, w2c, k, show_depth=False, project_to_cam_w_scale=None):
     return pts, cols
 
 
-def visualize(seq, exp, args: argparse.Namespace):
-    scene_data, is_fg = load_scene_data_from_path("/home/pavlos/Desktop/stuff/Uni-Masters/thesis/DrivableGaussians/output/animated_gaussians_larger.npz", args.remove_background)
+def visualize(args: argparse.Namespace):
+    scene_data, is_fg = load_scene_data_from_path(args.path, args.remove_background)
     print("Loaded scene data")
     vis = o3d.visualization.VisualizerWithKeyCallback()
     vis.create_window(width=int(w * view_scale), height=int(h * view_scale), visible=True)
@@ -208,7 +208,7 @@ def visualize(seq, exp, args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dynamic 3D Gaussian Visualizing")
-    parser.add_argument("-e", "--exp_name", help="Name of the experiment", default="exp1")
+    parser.add_argument("-p", "--path", help="Path", default="")
     parser.add_argument("-rm", "--render_mode", help="The rendering mode. Select from 'color', 'depth', 'centers'.",
                         default="color")
     parser.add_argument("-l", "--lines",
@@ -230,7 +230,6 @@ if __name__ == "__main__":
     print(f"Current device name: {current_device_name}")
 
     args = parser.parse_args()
-    exp_name = args.exp_name
 
-    for sequence in args.sequences:
-        visualize(sequence, exp_name, args)
+
+    visualize(args)
