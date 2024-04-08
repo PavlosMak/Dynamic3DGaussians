@@ -144,6 +144,27 @@ def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_
         is_fg = is_fg[is_fg]
     return scene_data, is_fg
 
+def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col = False):
+    params = dict(np.load(f"{path}"))
+    params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}
+    is_fg = params['seg_colors'][:, 0] > 0.5
+    scene_data = []
+    for t in range(len(params['means3D'])):
+        rendervar = {
+            'means3D': params['means3D'][t],
+            'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
+            'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
+            'opacities': torch.sigmoid(params['logit_opacities']),
+            'scales': torch.exp(params['log_scales']),
+            'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
+        }
+        # if remove_background:
+        #     rendervar = {k: v[is_fg] for k, v in rendervar.items()}
+        scene_data.append(rendervar)
+    if remove_background:
+        is_fg = is_fg[is_fg]
+    return scene_data, is_fg
+
 
 def get_volume(centers):
     AABB_min = torch.min(centers, axis=-2)[0]

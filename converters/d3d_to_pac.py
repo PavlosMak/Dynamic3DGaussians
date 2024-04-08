@@ -13,7 +13,7 @@ def copy_and_rename_file(source_dir, destination_dir, old_filename, new_filename
 
 
 if __name__ == '__main__':
-    input_base_path = "/media/pavlos/One Touch/datasets/gradsim_deformations/thinner_torus_red"
+    input_base_path = "/media/pavlos/One Touch/datasets/gradsim_deformations/thinner_torus_red_800by800"
     output_base_path = "/media/pavlos/One Touch/datasets/pac_data"
     output_path = f"{output_base_path}/thinner_torus_red"
 
@@ -37,7 +37,7 @@ if __name__ == '__main__':
             else:
                 image_id = image_name.strip(".png")
                 image_id = int(image_id)
-            copy_and_rename_file(base_camera_path, pac_image_path, image_name, f"r_{cam_id}_{image_id}")
+            copy_and_rename_file(base_camera_path, pac_image_path, image_name, f"r_{cam_id}_{image_id}.png")
 
         # Create training data json
         with open(metadata_path) as f:
@@ -49,13 +49,13 @@ if __name__ == '__main__':
 
         data = []
         for image_name in os.listdir(pac_image_path):
-            im = image_name.split("_")
+            im = image_name.strip(".png").split("_")
             camera_id = int(im[1])
             frame_id = int(im[2])
-            file_path = f"./data/{image_name}.png"
+            file_path = f"./data/{image_name}"
             time = -1
             intrinsic = ks[frame_id][camera_id]
-            c2w = np.linalg.inv(np.array(w2cs[frame_id][camera_id])).tolist()
+            c2w = np.linalg.inv(np.array(w2cs[frame_id][camera_id])).tolist()[:-1]
             data.append({
                 "file_path": file_path,
                 "time": time,

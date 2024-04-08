@@ -3,8 +3,9 @@ import torch
 import numpy as np
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-exp = "magic-salad-372"
-seq = "thinner_torus_red_many_frames"
+run_name = "helpful-dream"
+exp = "helpful-dream-400"
+seq = "elastic_0"
 
 if __name__ == "__main__":
     scene_data, is_fg = load_scene_data(seq, exp, False, model_location)
@@ -17,17 +18,17 @@ if __name__ == "__main__":
         positions.append(centers)
     positions = np.array(positions)
 
-    output_mesh = False
+    output_mesh = True
 
-    output_folder = "/media/pavlos/One Touch/datasets/gt_generation/magic-salad"
-    np.savez(f"{output_folder}/pseudo_gt_positions.npz", positions)
+    output_folder = f"/media/pavlos/One Touch/datasets/gt_generation/{run_name}"
+    # np.savez(f"{output_folder}/pseudo_gt_positions.npz", positions)
 
     if output_mesh:
         with open(f"{output_folder}/first_frame.obj", "w") as f:
             for point in positions[0]:
                 f.write(f"v {point[0]} {point[1]} {point[2]}\n")
     else:
-        output_folder = "/media/pavlos/One Touch/datasets/gt_generation/magic-salad/trajectories"
+        output_folder = f"/media/pavlos/One Touch/datasets/gt_generation/{run_name}/trajectories"
         for fi, frame_positions in enumerate(positions):
             output_path = f"{output_folder}/target_{fi}.txt"
             np.savetxt(output_path, frame_positions, delimiter=",")
