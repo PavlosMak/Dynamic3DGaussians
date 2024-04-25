@@ -37,7 +37,7 @@ if __name__ == '__main__':
             else:
                 image_id = image_name.strip(".png")
                 image_id = int(image_id)
-            copy_and_rename_file(base_camera_path, pac_image_path, image_name, f"r_{cam_id}_{image_id}.png")
+            copy_and_rename_file(base_camera_path, pac_image_path, image_name, f"r_{camera}_{image_id}.png")
 
         # Create training data json
         with open(metadata_path) as f:
