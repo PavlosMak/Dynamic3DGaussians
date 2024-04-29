@@ -1,9 +1,16 @@
+import os
+
 import torch
 import argparse
+import json
+
+from tqdm import tqdm
 
 from torchvision.utils import save_image
-from helpers import load_scene_data_from_path, params2rendervar, setup_camera
+from helpers import load_scene_data_from_path, setup_camera
 from diff_gaussian_rasterization import GaussianRasterizer as Renderer
+
+import timeit
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dynamic 3D Gaussian Visualizing")
@@ -20,6 +27,9 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model_location", help="The location of the model to be visualized.",
                         default="./output")
     parser.add_argument("-s", "--sequences", nargs="+", type=str, help="The sequence names")
+    parser.add_argument("-pt", "--path_to_test", type=str,
+                        help="The path to the path where the test_cameras.json file is.")
+    parser.add_argument("-o", "--output_path", type=str, help="The path where the output is stored")
 
     # CUDA Logging
     print(f"Cuda available: {torch.cuda.is_available()}")
@@ -30,21 +40,40 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     scene_data, is_fg = load_scene_data_from_path(args.path, args.remove_background)
-
     frames = len(scene_data)
 
-    # for now hardcoded
-    w = 800
-    h = 800
-    k = [[965.6843872070312, 0.0, 400.0], [0.0, 965.6843872070312, 400.0], [0.0, 0.0, 1.0]]
-    w2c = [[-0.9929813742637634, -4.65823825468063e-18, -0.11827089637517929, 7.127432850054195e-17],
-           [-0.03442002832889557, 0.9567148089408875, 0.28898441791534424, -1.9311199761985374e-16],
-           [0.11315152049064636, 0.2910270392894745, -0.949999988079071, 3.0], [0.0, 0.0, 0.0, 1.0]]
-    near = 1.0
-    far = 100
+    path_to_test_cameras = f"{args.path_to_test}/test_cameras.json"
+    test_cameras_file = open(path_to_test_cameras)
+    test_cameras = json.load(test_cameras_file)
 
-    cam = setup_camera(w, h, k, w2c, near, far)
-    for f, params in enumerate(scene_data):
-        rendervar = params  # params are already ready for rendering
-        im, radius, _, = Renderer(raster_settings=cam)(**rendervar)
-        save_image(im,f"output/im_{f}.png")
+    base_output_path = args.output_path
+
+    render_data = []
+    for i, camera in enumerate(test_cameras):
+        print(f"Camera {i + 1} / {len(test_cameras)}")
+        cam_id = camera["id"]
+        w = camera["w"]
+        h = camera["h"]
+        k = camera["k"]
+        near = camera["near"]
+        far = camera["far"]
+        w2c = camera["w2c"]
+        cam = setup_camera(w, h, k, w2c, near, far)
+
+        start_time = timeit.default_timer()
+
+        camera_path = f"{base_output_path}/test_cam_{cam_id}"
+        os.makedirs(camera_path, exist_ok=True)
+
+        for f, params in enumerate(tqdm(scene_data)):
+            im, radius, _, = Renderer(raster_settings=cam)(**params)
+            save_image(im, f"{camera_path}/{f}.png")
+        elapsed = timeit.default_timer() - start_time
+        seconds = elapsed
+        fps = frames / elapsed
+        data = {"fps": fps, "seconds": seconds, "frames": frames, "cam_id": cam_id}
+        render_data.append(data)
+
+    output_file_path = f"{base_output_path}/render_data.json"
+    with open(output_file_path, "w") as output_file:
+        json.dump(render_data, output_file)
