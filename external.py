@@ -20,6 +20,7 @@ import torch.nn.functional as func
 from torch.autograd import Variable
 from math import exp
 
+import point_cloud_utils as pcu
 
 def build_rotation(q):
     norm = torch.sqrt(q[:, 0] * q[:, 0] + q[:, 1] * q[:, 1] + q[:, 2] * q[:, 2] + q[:, 3] * q[:, 3])
@@ -167,6 +168,16 @@ def remove_transparent(params, variables, optimizer, remove_threshold=0.99):
     params, variables = remove_points(to_remove, params, variables, optimizer)
     print(f"Removed: {len(to_remove)}")
     return params, variables
+
+
+def poisson_subsample(params, variables, optimizer, target=10000):
+    print("Subsampling")
+    p = params["means3D"].cpu().numpy()
+    idx = pcu.downsample_point_cloud_poisson_disk(p, radius=0.003, target_num_samples=target)
+    to_remove = torch.ones(len(p)).bool()
+    to_remove[idx] = False
+    # print(params)
+    return remove_points(to_remove, params, variables, optimizer)
 
 
 def densify(params, variables, optimizer, i):
