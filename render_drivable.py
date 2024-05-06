@@ -62,7 +62,7 @@ if __name__ == "__main__":
         near = camera["near"]
         far = camera["far"]
         w2c = camera["w2c"]
-        cam = setup_camera(w, h, k, w2c, near, far)
+        cam = setup_camera(w, h, k, w2c, near, far, bg=[1, 1, 1])
 
         start_time = timeit.default_timer()
 
