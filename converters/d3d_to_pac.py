@@ -13,9 +13,9 @@ def copy_and_rename_file(source_dir, destination_dir, old_filename, new_filename
 
 
 if __name__ == '__main__':
-    input_base_path = "/media/pavlos/One Touch/datasets/gradsim_deformations/thinner_torus_red_800by800"
+    input_base_path = "/media/pavlos/One Touch/datasets/our_baseline/torus"
     output_base_path = "/media/pavlos/One Touch/datasets/pac_data"
-    output_path = f"{output_base_path}/thinner_torus_red"
+    output_path = f"{output_base_path}/our_baseline/torus"
 
     os.makedirs(output_path)
     pac_image_path = f"{output_path}/data"

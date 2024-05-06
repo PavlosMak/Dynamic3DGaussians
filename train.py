@@ -79,8 +79,7 @@ def initialize_params(seq, md, data_dir: str):
 
 def initialize_optimizer(params, variables):
     lrs = {
-        # 'means3D': 0.00016 * variables['scene_radius'],
-        'means3D': 0.0002 * variables['scene_radius'],
+        'means3D': 0.0005 * variables['scene_radius'],
         'rgb_colors': 0.0025,
         'seg_colors': 0.0,
         'unnorm_rotations': 0.001,
@@ -139,7 +138,7 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
 
         losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
 
-    loss_weights = {'im': 1, 'seg': 3.0, 'rigid': 2.0, 'rot': 4.0, 'iso': 1, 'floor': 2.0, 'bg': 20.0,
+    loss_weights = {'im': 300, 'seg': 3.0, 'rigid': 0.0, 'rot': 0.0, 'iso': 0.0, 'floor': 2.0, 'bg': 20.0,
                     'soft_col_cons': 0.01}
 
     wandb.log(losses)
@@ -257,9 +256,8 @@ def train(seq, exp, args: argparse.Namespace):
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
                     params, variables = densify(params, variables, optimizer, i)
-                    if i == num_iter_per_timestep - 1:
-                        # params, variables = remove_transparent(params, variables, optimizer)
-                        params, variables = poisson_subsample(params, variables, optimizer)
+                    # if i == num_iter_per_timestep - 1:
+                    #     params, variables = poisson_subsample(params, variables, optimizer, target=12000)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:

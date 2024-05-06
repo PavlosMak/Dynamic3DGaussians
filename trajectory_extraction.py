@@ -3,8 +3,8 @@ import torch
 import numpy as np
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-run_name = "wild-firebrand"
-exp = "wild-firebrand-454"
+run_name = "fast-water"
+exp = "fast-water-564"
 seq = "torus"
 
 if __name__ == "__main__":
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     positions = np.array(positions)
     print(f"Points {len(positions[0])}")
 
-    output_mesh = False
+    output_mesh = True
 
     output_folder = f"/media/pavlos/One Touch/datasets/gt_generation/{run_name}"
     np.savez(f"{output_folder}/pseudo_gt_positions.npz", positions)

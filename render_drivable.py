@@ -12,6 +12,10 @@ from diff_gaussian_rasterization import GaussianRasterizer as Renderer
 
 import timeit
 
+import cv2
+import numpy as np
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Dynamic 3D Gaussian Visualizing")
     parser.add_argument("-p", "--path", help="Path", default="")
@@ -65,15 +69,29 @@ if __name__ == "__main__":
         camera_path = f"{base_output_path}/test_cam_{cam_id}"
         os.makedirs(camera_path, exist_ok=True)
 
+        images = []
         for f, params in enumerate(tqdm(scene_data)):
             im, radius, _, = Renderer(raster_settings=cam)(**params)
-            save_image(im, f"{camera_path}/{f}.png")
+            images.append((f"{camera_path}/{f}.png", im))
         elapsed = timeit.default_timer() - start_time
         seconds = elapsed
         fps = frames / elapsed
         data = {"fps": fps, "seconds": seconds, "frames": frames, "cam_id": cam_id}
         render_data.append(data)
-
+        white_background = torch.ones_like(images[0][1])
+        width, height = 400, 400
+        bgcolor = [0, 0, 0]
+        for path, im in images:
+            # im = im.view(width, height, 3).cpu()
+            # im = im
+            im = im.cpu()
+            # cv2_image = np.transpose(im, (1, 2, 0))
+            # cv2_image[np.all(cv2_image == bgcolor, axis=2)] = [255, 255, 255]
+            # cv2_image[cv2_image[:, :] == [0, 0, 0]] = 255
+            # cv2_image[cv2_image[:, :] != [0, 0, 0]] *= 255
+            # cv2_image = cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB)
+            save_image(im, path)
+            # cv2.imwrite(path, cv2_image)
     output_file_path = f"{base_output_path}/render_data.json"
     with open(output_file_path, "w") as output_file:
         json.dump(render_data, output_file)
