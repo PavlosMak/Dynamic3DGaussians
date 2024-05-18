@@ -3,8 +3,8 @@ import torch
 import numpy as np
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-run_name = "fast-water"
-exp = "fast-water-564"
+run_name = "denim-pyramid"
+exp = "denim-pyramid-597"
 seq = "torus"
 
 if __name__ == "__main__":

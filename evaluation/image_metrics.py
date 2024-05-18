@@ -7,12 +7,16 @@ import json
 import torch
 from torchvision.transforms import Normalize
 
-ground_truth = ["/media/pavlos/One Touch/datasets/our_baseline/torus/white/0"]
-ours = ["/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/ours/torus/test_cam_0_white"]
-pacnerfs = ["/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/pac-nerf/torus/image"]
-results = ["/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/torus"]
+ground_truth = ["/media/pavlos/One Touch/datasets/our_baseline/torus/evaluation/0",
+                "/media/pavlos/One Touch/datasets/dynamic_pac/elastic_0/evaluation/0"]
+ours = [
+    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/ours/torus/test_cam_0",
+    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/pacnerf_baseline/ours/elastic_0/test_cam_0"]
+pacnerfs = [
+    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/pac-nerf/torus/image",
+    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/pacnerf_baseline/pacnerf/0/image"]
 output_dir = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results"
-frames = [20]
+frames = [20, 14]
 
 loss_fn_alex = lpips.LPIPS(net='alex')
 
@@ -52,7 +56,7 @@ if __name__ == "__main__":
         sequence_results["our_path"] = ours[i]
         sequence_results["pacnerf_path"] = pacnerfs[i]
 
-        gt_path = f"{sequence}/000000.png"
+        gt_path = f"{sequence}/00000.png"
         our = f"{ours[i]}/0.png"
         pacnerf = f"{pacnerfs[i]}/000.png"
 
@@ -69,15 +73,15 @@ if __name__ == "__main__":
         sequence_results["first_frame_ssim_pac"] = ssim_pac
 
         lpips_our, lpips_pac = get_lpips(gt, our, pacnerf)
-        sequence_results["first_frame_lpips_ours"] = ssim_our
-        sequence_results["first_frame_lpips_pac"] = ssim_pac
+        sequence_results["first_frame_lpips_ours"] = lpips_our
+        sequence_results["first_frame_lpips_pac"] = lpips_pac
 
         frame_count = frames[i]
         psnr_our, psnr_pac = [], []
         ssim_our, ssim_pac = [], []
         lpips_our, lpips_pac = [], []
         for fi in range(frame_count):
-            gt = f"{sequence}/{str(fi).zfill(6)}.png"  # format 000000
+            gt = f"{sequence}/{str(fi).zfill(5)}.png"  # format 00000
             our = f"{ours[i]}/{fi}.png"
             pacnerf = f"{pacnerfs[i]}/{str(fi).zfill(3)}.png"  # format 000
 
@@ -115,5 +119,6 @@ if __name__ == "__main__":
         # TODO: Overlap with the mask?
         # TODO: Chamfer distance - probably better at different spot
 
+    print(f"Saving at {output_dir}")
     with open(f"{output_dir}/image_metrics.json", "w") as f:
         json.dump(results, f)
