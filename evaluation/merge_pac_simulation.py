@@ -6,10 +6,10 @@ from plyfile import PlyData
 # input_directory = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/torus/ground_truth"
 
 # Elastic 0
-output_directory = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/ground_truth"
-input_directory = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/ground_truth"
+output_directory = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/pac_reconstruction"
+input_directory = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/pac_reconstruction"
 
-num_frames = 16
+num_frames = 14
 
 input_directories = [f"{input_directory}/{i}.ply" for i in range(num_frames)]
 
@@ -26,4 +26,4 @@ if __name__ == "__main__":
         verts = np.array([np.array(list(v)) for v in verts])
         pacnerf_points.append(verts)
     pacnerf_points = np.array(pacnerf_points)
-    np.savez(f"{output_directory}/ground_truth.npz", pacnerf_points)
+    np.savez(f"{output_directory}/pac.npz", pacnerf_points)

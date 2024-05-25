@@ -3,7 +3,7 @@ from PIL import Image
 import numpy as np
 
 paths = [
-    "/media/pavlos/One Touch/datasets/our_baseline/torus_recalibrated/evaluation/0"
+    "/media/pavlos/One Touch/datasets/our_baseline/torus_kf10/evaluation/0"
 ]
 
 if __name__ == "__main__":

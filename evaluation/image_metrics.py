@@ -8,13 +8,16 @@ import torch
 from torchvision.transforms import Normalize
 
 ground_truth = ["/media/pavlos/One Touch/datasets/our_baseline/torus/evaluation/0",
-                "/media/pavlos/One Touch/datasets/dynamic_pac/elastic_0/evaluation/0"]
+                "/media/pavlos/One Touch/datasets/dynamic_pac/elastic_0/evaluation/0"
+                "/media/pavlos/One Touch/datasets/dynamic_pac/torus/evaluation/0"]
 ours = [
     "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/ours/torus/test_cam_0",
     "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/pacnerf_baseline/ours/elastic_0/test_cam_0"]
 pacnerfs = [
     "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/our_baseline/pac-nerf/torus/image",
-    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/pacnerf_baseline/pacnerf/0/image"]
+    "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results/pacnerf_baseline/pacnerf/0/image",
+    ""
+]
 output_dir = "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/results"
 frames = [20, 14]
 

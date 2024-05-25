@@ -6,7 +6,7 @@ import numpy as np
 # with the D3D ground truth
 
 paths = [
-    "/media/pavlos/One Touch/datasets/dynamic_pac/elastic_0/white/0"
+    "/media/pavlos/One Touch/datasets/dynamic_pac/torus/evaluation/0/data"
 ]
 
 if __name__ == "__main__":

@@ -159,8 +159,8 @@ def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col=Fal
             'scales': torch.exp(params['log_scales']),
             'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
         }
-        # if remove_background:
-        #     rendervar = {k: v[is_fg] for k, v in rendervar.items()}
+        if remove_background:
+            rendervar = {k: v[is_fg] for k, v in rendervar.items()}
         scene_data.append(rendervar)
     if remove_background:
         is_fg = is_fg[is_fg]

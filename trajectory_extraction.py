@@ -3,9 +3,9 @@ import torch
 import numpy as np
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-run_name = "denim-pyramid"
-exp = "denim-pyramid-597"
-seq = "torus"
+run_name = "ancient-leaf"
+exp = "ancient-leaf-604"
+seq = "torus_kf10"
 
 if __name__ == "__main__":
     scene_data, is_fg = load_scene_data(seq, exp, False, model_location)
