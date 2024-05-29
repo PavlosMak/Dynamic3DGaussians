@@ -70,7 +70,7 @@ def get_batch(todo_dataset, dataset):
 def initialize_params(seq, md, data_dir: str):
     init_pt_cld = np.load(f"{data_dir}/{seq}/init_pt_cld.npz")["data"]
     seg = init_pt_cld[:, 6]
-    max_cams = 50
+    max_cams = 70
     sq_dist, _ = o3d_knn(init_pt_cld[:, :3], 3)
     mean3_sq_dist = sq_dist.mean(-1).clip(min=0.0000001)
     params = {

@@ -3,7 +3,13 @@ import shutil
 
 import numpy as np
 import json
+
+from tqdm import tqdm
+
 from read_cameras import *
+
+from PIL import Image
+import torchvision.transforms as transforms
 
 scene = "potato"
 
@@ -47,16 +53,35 @@ if __name__ == "__main__":
     path_to_output_seg = f"{path_to_output}/seg"
     os.makedirs(path_to_output_seg, exist_ok=True)
 
+    path_to_cameras = f"{colmap_path}/cameras.bin"
+    # we only have one camera
+    camera = read_cameras_binary(path_to_cameras)[1]
+
+    s = 0.16835016835
+
+    w = int(s*camera.width) + 1
+    h = int(s*camera.height) + 1
+
+    resize_transform = transforms.Resize((h, w))
+
+    k = np.array([[s*camera.params[0], 0, s*camera.params[2]],
+                  [0, s*camera.params[1], s*camera.params[3]],
+                  [0, 0, 1]])
+
+
     inputs = [path_to_input_ims, path_to_input_seg]
     outputs = [path_to_output_ims, path_to_output_seg]
     for i, path in enumerate(inputs):
         base_output = outputs[i]
         extension = "jpg" if i == 0 else "png"
         total_views = len(os.listdir(path))
-        for fi, file in enumerate(os.listdir(path)):
+        for fi, file in enumerate(tqdm(os.listdir(path))):
             dst = f"{base_output}/{fi}"
+            image = Image.open(f"{path}/{file}")
             os.makedirs(dst, exist_ok=True)
-            copy_and_rename_file(f"{path}/{file}", dst, f"{str(0).zfill(6)}.{extension}")
+            image = resize_transform(image)
+            # copy_and_rename_file(f"{path}/{file}", dst, f"{str(0).zfill(6)}.{extension}")
+            image.save(f"{dst}/{str(0).zfill(6)}.{extension}")
 
     # export points
     path_to_points = f"{colmap_path}/points3D.bin"
@@ -68,13 +93,6 @@ if __name__ == "__main__":
             [point.xyz[0], point.xyz[1], point.xyz[2], point.rgb[0] / 255, point.rgb[1] / 255, point.rgb[2] / 255, 1.0])
     points = np.array(points_array)
     np.savez(f"{path_to_output}/init_pt_cld.npz", data=points)
-
-    path_to_cameras = f"{colmap_path}/cameras.bin"
-    # we only have one camera
-    camera = read_cameras_binary(path_to_cameras)[1]
-    k = np.array([[camera.params[0], 0, camera.params[2]],
-                  [0, camera.params[1], camera.params[3]],
-                  [0, 0, 1]])
 
     path_to_image_data = f"{colmap_path}/images.bin"
     images_data = read_images_binary(path_to_image_data)
@@ -95,9 +113,6 @@ if __name__ == "__main__":
         last_col[3] = 1.0
         R = np.hstack((R, last_col))
         w2cs_matrices.append(t @ R)
-
-    w = camera.width
-    h = camera.height
 
     total_frames = 1
     ks = np.zeros((total_frames, total_views, 3, 3))
