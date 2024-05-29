@@ -27,19 +27,25 @@ def load_ply_file(file_path):
 # }
 
 # Elastic 0
-# data_paths = {
-#     "MPM": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/ground_truth/ground_truth.npz",
-#     "Gradsim": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/positions_gt.npz",
-#     "PAC-NeRF predicted": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/pac_reconstruction/pac.npz"
-# }
-
-# Elastic 1
 data_paths = {
-    "MPM": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/ground_truth/gt.npz",
-    "Gradsim": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/positions_gt.npz",
-    "PAC-NeRF predicted": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/pac_reconstruction/pac.npz"
+    "MPM": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/ground_truth/ground_truth.npz",
+    "Gradsim": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/positions_gt.npz",
+    "PAC-NeRF predicted": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_0/pac_reconstruction/pac.npz"
 }
 
+# # Elastic 1
+# data_paths = {
+#     "MPM": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/ground_truth/gt.npz",
+#     "Gradsim": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/positions_gt.npz",
+#     "PAC-NeRF predicted": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_1/pac_reconstruction/pac.npz"
+# }
+
+# Elastic 2
+data_paths = {
+    "MPM": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_2/ground_truth/gt.npz",
+    "Gradsim": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_2/positions_gt.npz",
+    "PAC-NeRF predicted": "/home/pavlos/Desktop/stuff/Uni-Masters/thesis/elastic_2/pac_reconstruction/pac.npz"
+}
 
 
 if __name__ == "__main__":
