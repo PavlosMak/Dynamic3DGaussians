@@ -173,7 +173,7 @@ def remove_transparent(params, variables, optimizer, remove_threshold=0.99):
 def poisson_subsample(params, variables, optimizer, target=10000):
     print("Subsampling")
     p = params["means3D"].cpu().numpy()
-    idx = pcu.downsample_point_cloud_poisson_disk(p, radius=0.003, target_num_samples=target)
+    idx = pcu.downsample_point_cloud_poisson_disk(p, radius=0.03, target_num_samples=target)
     to_remove = torch.ones(len(p)).bool()
     to_remove[idx] = False
     # print(params)
