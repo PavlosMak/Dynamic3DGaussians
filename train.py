@@ -213,6 +213,14 @@ def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
 
 def report_progress(params, data, i, progress_bar, every_i=100):
     if i % every_i == 0:
+        if i == 900:
+            print("Saving params")
+            centers_numpy = params['means3D'].cpu().numpy()
+            np.savez("debug.npz", centers_numpy)
+            rgb_colors = params["rgb_colors"].cpu().numpy()
+            np.savez("debug_colors.npz", rgb_colors)
+            print("Saved")
+            print("Saved")
         im, _, _, = Renderer(raster_settings=data['cam'])(**params2rendervar(params))
         wandb.log({"renders": wandb.Image(im)})
         curr_id = data['id']
@@ -260,9 +268,9 @@ def train(seq, exp, args: argparse.Namespace):
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
                     params, variables = densify(params, variables, optimizer, i)
-                    if i == num_iter_per_timestep - 1:
+                    # if i == num_iter_per_timestep - 1:
                         # params, variables = remove_transparent(params, variables, optimizer, remove_threshold=0.997)
-                        params, variables = poisson_subsample(params, variables, optimizer, target=12000)
+                        # params, variables = poisson_subsample(params, variables, optimizer, target=12000)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:

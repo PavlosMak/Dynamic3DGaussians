@@ -3,14 +3,14 @@ import torch
 import numpy as np
 
 model_location = "/media/pavlos/One Touch/datasets/gaussian_assets_output"
-run_name = "wild-firebrand"
-exp = "wild-firebrand-454"
-seq = "torus"
+run_name = "usual-valley"
+exp = "usual-valley-703"
+seq = "ball"
 
 if __name__ == "__main__":
     scene_data, is_fg = load_scene_data(seq, exp, False, model_location)
     # select_indices = scene_data[0]["opacities"] < torch.mean(scene_data[0]["opacities"])
-    select_indices = (scene_data[0]["opacities"] > 0.98).flatten()
+    select_indices = (scene_data[0]["opacities"] > 0.0).flatten()
     positions = []
     for data in scene_data:
         centers = data["means3D"][select_indices]
