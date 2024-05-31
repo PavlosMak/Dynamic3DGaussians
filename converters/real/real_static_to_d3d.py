@@ -12,6 +12,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 import rerun as rr
 
+
 scene = "potato"
 
 path_to_input_ims = f"/media/pavlos/One Touch/datasets/spring_gauss/real_capture/static/images/{scene}"

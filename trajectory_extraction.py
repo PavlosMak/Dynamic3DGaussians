@@ -10,7 +10,7 @@ seq = "ball"
 if __name__ == "__main__":
     scene_data, is_fg = load_scene_data(seq, exp, False, model_location)
     # select_indices = scene_data[0]["opacities"] < torch.mean(scene_data[0]["opacities"])
-    select_indices = (scene_data[0]["opacities"] > 0.0).flatten()
+    select_indices = (scene_data[0]["opacities"] > 0.).flatten()
     positions = []
     for data in scene_data:
         centers = data["means3D"][select_indices]

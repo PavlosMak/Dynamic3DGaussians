@@ -170,17 +170,16 @@ def visualize(args: argparse.Namespace):
             cam_params.extrinsic = w2c
             view_control.convert_from_pinhole_camera_parameters(cam_params, allow_arbitrary=True)
         else:  # Interactive control
-            print("Interactive control")
             cam_params = view_control.convert_to_pinhole_camera_parameters()
             view_k = cam_params.intrinsic.intrinsic_matrix
             k = view_k / view_scale
             k[2, 2] = 1
             w2c = cam_params.extrinsic
-            print("==========")
-            print("Intrinsic matrix:\n", w2c, "\n")
-            print("")
-            print(k)
-            print("=========")
+            # print("==========")
+            # print("Intrinsic matrix:\n", w2c, "\n")
+            # print("")
+            # print(k)
+            # print("=========")
 
         if args.render_mode == 'centers':
             pts = o3d.utility.Vector3dVector(scene_data[t]['means3D'].contiguous().double().cpu().numpy())

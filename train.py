@@ -16,23 +16,47 @@ from external import *
 from helpers import *
 
 
+def load_im(path_to_im):
+    np_im = np.array(copy.deepcopy(Image.open(path_to_im)))
+    return torch.tensor(np_im).float().permute(2, 0, 1) / 255, np_im
+def mask_dataset(path_to_im, path_to_mask):
+    im, np_im = load_im(path_to_im)
+    segmented_image = torch.tensor(np_im).float() / 255
+    seg = np.array(copy.deepcopy(Image.open(path_to_mask))).astype(
+        np.float32)
+    seg = torch.tensor(seg).float()
+    seg_col = torch.stack((seg, torch.zeros_like(seg), 1 - seg))
+    # TODO: There must be a better way to do the masking
+    segmented_image[seg == 0.0] = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
+    segmented_image = torch.permute(segmented_image, (2, 0, 1))
+    return im, seg_col, segmented_image
+
+# TODO: This should be replaced with an actual data loader
 def get_dataset(t, md, seq, data_dir: str):
     dataset = []
-    for c in range(len(md['fn'][t])):
+    print("Preprocessing")
+    for c in tqdm(range(len(md['fn'][t]))):
         w, h, k, w2c = md['w'], md['h'], md['k'][t][c], md['w2c'][t][c]
         cam = setup_camera(w, h, k, w2c, near=1.0, far=100)
         fn = md['fn'][t][c]
-        np_im = np.array(copy.deepcopy(Image.open(f"{data_dir}/{seq}/ims/{fn}")))
-        im = torch.tensor(np_im).float().cuda().permute(2, 0, 1) / 255
-        segmented_image = torch.tensor(np_im).float() / 255
-        seg = np.array(copy.deepcopy(Image.open(f"{data_dir}/{seq}/seg/{fn.replace('.jpg', '.png')}"))).astype(
-            np.float32)
-        seg = torch.tensor(seg).float().cuda()
-        seg_col = torch.stack((seg, torch.zeros_like(seg), 1 - seg))
-        # TODO: There must be a better way to do the masking
-        segmented_image[seg == 0.0] = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
-        segmented_image = torch.permute(segmented_image, (2, 0, 1)).cuda()
-        dataset.append({'cam': cam, 'im': im, 'seg': seg_col, 'id': c, 'seg_im': segmented_image})
+        path_to_im = f"{data_dir}/{seq}/ims/{fn}"
+        np_im = np.array(copy.deepcopy(Image.open(path_to_im)))
+        # im = torch.tensor(np_im).float().permute(2, 0, 1) / 255
+        # segmented_image = torch.tensor(np_im).float() / 255
+        path_to_mask = f"{data_dir}/{seq}/seg/{fn.replace('.jpg', '.png')}"
+        # seg = np.array(copy.deepcopy(Image.open(path_to_mask))).astype(
+        #     np.float32)
+        # seg = torch.tensor(seg).float()
+        # seg_col = torch.stack((seg, torch.zeros_like(seg), 1 - seg))
+        # # TODO: There must be a better way to do the masking
+        # segmented_image[seg == 0.0] = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
+        # segmented_image = torch.permute(segmented_image, (2, 0, 1))
+        # Note: original code, transferred all image tensors to cuda, but this makes you run out of memory if the resolution is
+        # high, so I had to change it. The tradeoff is that now the tensors need to be moved every time before computation.
+        # dataset.append({'cam': cam, 'im': path_to_im, 'seg': seg_col, 'id': c, 'seg_im': segmented_image})
+        # im, seg_col, segmented_image = mask_dataset(path_to_im, path_to_mask)
+        # dataset.append({'cam': cam, 'im': im, 'seg': seg_col, 'id': c, 'seg_im': segmented_image})
+        dataset.append({'cam': cam, 'im': path_to_im, 'id': c, 'seg_im': path_to_mask})
     return dataset
 
 
@@ -68,7 +92,6 @@ def initialize_params(seq, md, data_dir: str):
     max_point = np.max(init_pt_cld[:, :3], axis=0)
     half_extends = 0.5 * (max_point - min_point)
     scene_radius = np.max(half_extends)
-
     variables = {'max_2D_radius': torch.zeros(params['means3D'].shape[0]).cuda().float(),
                  'scene_radius': scene_radius,
                  'means2D_gradient_accum': torch.zeros(params['means3D'].shape[0]).cuda().float(),
@@ -103,7 +126,11 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     curr_id = curr_data['id']
     im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
     # losses['im'] = 0.8 * l1_loss_v1(im, curr_data['seg_im']) + 0.2 * (1.0 - calc_ssim(im, curr_data['seg_im']))
-    losses['im'] = l1_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
+    _, seg_colors, seg_im = mask_dataset(curr_data["im"], curr_data["seg_im"])
+    seg_colors = seg_colors.cuda()
+    seg_im = seg_im.cuda()
+
+    losses['im'] = l1_loss_masked(im, seg_im, seg_colors[0, :])
     # losses['im'] = l2_loss_masked(im, curr_data['seg_im'], curr_data['seg'][0, :])
 
     variables['means2D'] = rendervar['means2D']  # Gradient only accum from colour render for densification
@@ -111,7 +138,8 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     segrendervar = params2rendervar(params)
     segrendervar['colors_precomp'] = params['seg_colors']
     seg, _, _, = Renderer(raster_settings=curr_data['cam'])(**segrendervar)
-    losses['seg'] = 0.8 * l1_loss_v1(seg, curr_data['seg']) + 0.2 * (1.0 - calc_ssim(seg, curr_data['seg']))
+    losses['seg'] = 0.8 * l1_loss_v1(seg, seg_im) + 0.2 * (
+            1.0 - calc_ssim(seg, seg_im))
 
     is_fg = (params['seg_colors'][:, 0] > 0.5).detach()
     if not is_initial_timestep:
@@ -143,7 +171,6 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
     # Losses for torus and pacnerf torus
     loss_weights = {'im': 50, 'seg': 3.0, 'rigid': 1000.0, 'rot': 0.0, 'iso': 700.0, 'floor': 2.0, 'bg': 20.0,
                     'soft_col_cons': 0.01}
-
 
     wandb.log(losses)
     loss = sum([loss_weights[k] * v for k, v in losses.items()])
@@ -225,7 +252,8 @@ def report_progress(params, data, i, progress_bar, every_i=100):
         wandb.log({"renders": wandb.Image(im)})
         curr_id = data['id']
         im = torch.exp(params['cam_m'][curr_id])[:, None, None] * im + params['cam_c'][curr_id][:, None, None]
-        psnr = calc_psnr(im, data['im']).mean()
+        data_im = load_im(data['im'])[0].cuda()
+        psnr = calc_psnr(im, data_im).mean()
         wandb.log({"PSNR": psnr})
         progress_bar.set_postfix({"train img 0 PSNR": f"{psnr:.{7}f}"})
         progress_bar.update(every_i)

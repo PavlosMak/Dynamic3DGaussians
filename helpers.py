@@ -6,7 +6,7 @@ from diff_gaussian_rasterization import GaussianRasterizationSettings as Camera
 import matplotlib.pyplot as plt
 
 
-def setup_camera(w, h, k, w2c, near=0.01, far=100):
+def setup_camera(w, h, k, w2c, near=0.01, far=100, bg=[0,0,0]):
     fx, fy, cx, cy = k[0][0], k[1][1], k[0][2], k[1][2]
     w2c = torch.tensor(w2c).cuda().float()
     cam_center = torch.inverse(w2c)[:3, 3]
@@ -21,7 +21,7 @@ def setup_camera(w, h, k, w2c, near=0.01, far=100):
         image_width=w,
         tanfovx=w / (2 * fx),
         tanfovy=h / (2 * fy),
-        bg=torch.tensor([0, 0, 0], dtype=torch.float32, device="cuda"),
+        bg=torch.tensor(bg, dtype=torch.float32, device="cuda"),
         scale_modifier=1.0,
         viewmatrix=w2c,
         projmatrix=full_proj,
@@ -144,7 +144,8 @@ def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_
         is_fg = is_fg[is_fg]
     return scene_data, is_fg
 
-def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col = False):
+
+def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col=False):
     params = dict(np.load(f"{path}"))
     params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}
     is_fg = params['seg_colors'][:, 0] > 0.5
@@ -158,8 +159,8 @@ def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col = F
             'scales': torch.exp(params['log_scales']),
             'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
         }
-        # if remove_background:
-        #     rendervar = {k: v[is_fg] for k, v in rendervar.items()}
+        if remove_background:
+            rendervar = {k: v[is_fg] for k, v in rendervar.items()}
         scene_data.append(rendervar)
     if remove_background:
         is_fg = is_fg[is_fg]
