@@ -10,7 +10,7 @@ from torchvision.transforms import Normalize
 ground_truth = [f"/home/pavlos/Desktop/ground_truth_images/elastic_{i}/0" for i in range(0, 10) if i != 4]
 ours = [f"/home/pavlos/Desktop/results/pacnerf_baseline/ours/elastic_{i}/test_cam_0" for i in range(0, 10) if i !=4 ]
 pacnerfs = [f"/home/pavlos/Desktop/PAC-NeRF/checkpoint/elastic/{i}/image" for i in range(0, 10) if i != 4]
-output_dir = "/home/pavlos/Desktop/results/pacnerf_baseline"
+output_dir = "/home/pavlos/Desktop/results/our_baseline"
 frames = [13] * 10
 
 loss_fn_alex = lpips.LPIPS(net='alex')

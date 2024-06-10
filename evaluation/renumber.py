@@ -6,7 +6,7 @@ import numpy as np
 # with the D3D ground truth
 
 paths = [
-    "/media/pavlos/One Touch/datasets/dynamic_pac/torus/evaluation/0/data"
+    f"/home/pavlos/Desktop/ground_truth_images/elastic_{f}/0" for f in range(1,10)
 ]
 
 if __name__ == "__main__":

@@ -151,14 +151,27 @@ def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col=Fal
     is_fg = params['seg_colors'][:, 0] > 0.5
     scene_data = []
     for t in range(len(params['means3D'])):
-        rendervar = {
-            'means3D': params['means3D'][t],
-            'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
-            'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
-            'opacities': torch.sigmoid(params['logit_opacities']),
-            'scales': torch.exp(params['log_scales']),
-            'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
-        }
+        if "unnorm_rotations" in params and "log_scales" in params:
+            rendervar = {
+                'means3D': params['means3D'][t],
+                'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
+                'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
+                'opacities': torch.sigmoid(params['logit_opacities']),
+                'scales': torch.exp(params['log_scales']),
+                'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
+            }
+        elif "cov3D_precomp" in params:
+            rendervar = {
+                'means3D': params['means3D'][t],
+                'colors_precomp': params['rgb_colors'][t] if not seg_as_col else params['seg_colors'],
+                # 'rotations': torch.nn.functional.normalize(params['unnorm_rotations'][t]),
+                'opacities': torch.sigmoid(params['logit_opacities']),
+                # 'scales': torch.exp(params['log_scales']),
+                'cov3D_precomp': params['cov3D_precomp'][t],
+                'means2D': torch.zeros_like(params['means3D'][0], device="cuda")
+            }
+        else:
+            raise RuntimeError("Please provide exactly either scale and rotation or precomputed covariances")
         if remove_background:
             rendervar = {k: v[is_fg] for k, v in rendervar.items()}
         scene_data.append(rendervar)
