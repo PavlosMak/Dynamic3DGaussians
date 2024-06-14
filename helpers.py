@@ -144,7 +144,6 @@ def load_scene_data(seq, exp, remove_background: bool, model_location: str, seg_
         is_fg = is_fg[is_fg]
     return scene_data, is_fg
 
-
 def load_scene_data_from_path(path: str, remove_background: bool, seg_as_col=False):
     params = dict(np.load(f"{path}"))
     params = {k: torch.tensor(v).cuda().float() for k, v in params.items()}

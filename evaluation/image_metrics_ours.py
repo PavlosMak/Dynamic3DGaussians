@@ -6,12 +6,23 @@ import lpips
 import json
 import torch
 from torchvision.transforms import Normalize
+from tqdm import tqdm
 
 ground_truth = [f"/home/pavlos/Desktop/ground_truth_images/elastic_{i}/0" for i in range(0, 10) if i != 4]
 ours = [f"/home/pavlos/Desktop/results/pacnerf_baseline/ours/elastic_{i}/test_cam_0" for i in range(0, 10) if i !=4 ]
 pacnerfs = [f"/home/pavlos/Desktop/PAC-NeRF/checkpoint/elastic/{i}/image" for i in range(0, 10) if i != 4]
 output_dir = "/home/pavlos/Desktop/results/our_baseline"
-frames = [13] * 10
+
+ground_truth = []
+ours = []
+pacnerfs = []
+frame_count = 20
+
+for scene in ["ball", "cow", "whale", "torus"]:
+    for cam in range(11):
+        ours.append(f"/home/pavlos/Desktop/results/our_baseline/ours/{scene}/test_cam_{cam}")
+        pacnerfs.append(f"/home/pavlos/Desktop/PAC-NeRF/checkpoint/{scene}/image_{cam}")
+        ground_truth.append(f"/home/pavlos/Desktop/ground_truth_images/{scene}/{cam}")
 
 loss_fn_alex = lpips.LPIPS(net='alex')
 
@@ -45,7 +56,7 @@ def get_lpips(gt, ours, pac):
 
 if __name__ == "__main__":
     results = []
-    for i, sequence in enumerate(ground_truth):
+    for i, sequence in enumerate(tqdm(ground_truth)):
         sequence_results = {}
         sequence_results["gt_path"] = sequence
         sequence_results["our_path"] = ours[i]
@@ -71,10 +82,15 @@ if __name__ == "__main__":
         sequence_results["first_frame_lpips_ours"] = lpips_our
         sequence_results["first_frame_lpips_pac"] = lpips_pac
 
-        frame_count = frames[i]
         psnr_our, psnr_pac = [], []
         ssim_our, ssim_pac = [], []
         lpips_our, lpips_pac = [], []
+
+        if "whale" or "torus" in gt:
+            frame_count = 13
+        else:
+            frame_count = 20
+
         for fi in range(frame_count):
             gt = f"{sequence}/{str(fi).zfill(5)}.png"  # format 00000
             our = f"{ours[i]}/{fi}.png"

@@ -49,7 +49,6 @@ if __name__ == "__main__":
     path_to_test_cameras = f"{args.path_to_test}/test_cameras.json"
     test_cameras_file = open(path_to_test_cameras)
     test_cameras = json.load(test_cameras_file)
-
     base_output_path = args.output_path
 
     render_data = []

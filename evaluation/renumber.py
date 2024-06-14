@@ -5,9 +5,10 @@ import numpy as np
 # Run this to number Pac-Nerf ground truth data in a way  that's consistent
 # with the D3D ground truth
 
-paths = [
-    f"/home/pavlos/Desktop/ground_truth_images/elastic_{f}/0" for f in range(1,10)
-]
+paths = []
+for scene in range(10):
+    for cam in range(11):
+        paths.append(f"/home/pavlos/Desktop/ground_truth_images/elastic_{scene}/{cam}")
 
 if __name__ == "__main__":
     for i, p in enumerate(paths):

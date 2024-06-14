@@ -15,10 +15,14 @@ from tqdm import tqdm
 from external import *
 from helpers import *
 
+path_to_static = "/home/pavlos/Desktop/output/gaussian_assets_output/eternal-waterfall-935/potato_static/params.npz"
+
 
 def load_im(path_to_im):
     np_im = np.array(copy.deepcopy(Image.open(path_to_im)))
     return torch.tensor(np_im).float().permute(2, 0, 1) / 255, np_im
+
+
 def mask_dataset(path_to_im, path_to_mask):
     im, np_im = load_im(path_to_im)
     segmented_image = torch.tensor(np_im).float() / 255
@@ -30,6 +34,7 @@ def mask_dataset(path_to_im, path_to_mask):
     segmented_image[seg == 0.0] = torch.tensor([1.0, 1.0, 1.0], dtype=torch.float32)
     segmented_image = torch.permute(segmented_image, (2, 0, 1))
     return im, seg_col, segmented_image
+
 
 # TODO: This should be replaced with an actual data loader
 def get_dataset(t, md, seq, data_dir: str):
@@ -61,22 +66,20 @@ def get_batch(todo_dataset, dataset):
     return curr_data, todo_dataset
 
 
-def initialize_params(seq, md, data_dir: str):
+def initialize_params(seq, md, data_dir: str, path_to_static, registration):
     init_pt_cld = np.load(f"{data_dir}/{seq}/init_pt_cld.npz")["data"]
     seg = init_pt_cld[:, 6]
     max_cams = 70
     sq_dist, _ = o3d_knn(init_pt_cld[:, :3], 3)
     mean3_sq_dist = sq_dist.mean(-1).clip(min=0.0000001)
-    params = {
-        'means3D': init_pt_cld[:, :3],
-        'rgb_colors': init_pt_cld[:, 3:6],
-        'seg_colors': np.stack((seg, np.zeros_like(seg), 1 - seg), -1),
-        'unnorm_rotations': np.tile([1, 0, 0, 0], (seg.shape[0], 1)),
-        'logit_opacities': np.zeros((seg.shape[0], 1)),
-        'log_scales': np.tile(np.log(np.sqrt(mean3_sq_dist))[..., None], (1, 3)),
-        'cam_m': np.zeros((max_cams, 3)),
-        'cam_c': np.zeros((max_cams, 3)),
-    }
+    params = dict(np.load(path_to_static))
+    s = registration['s'][0]
+    R = torch.tensor(registration["R"])
+    t = torch.tensor(registration['t'])
+    xyz = torch.tensor(params["means3D"])
+    origin = torch.mean(xyz, dim=0, keepdim=True)
+    xyz = s * (xyz - origin)
+    params['means3D'] = ((R @ xyz.transpose(0, 1)).transpose(0, 1) + t.unsqueeze(0)).cpu().numpy()
     params = {k: torch.nn.Parameter(torch.tensor(v).cuda().float().contiguous().requires_grad_(True)) for k, v in
               params.items()}
     cam_centers = np.linalg.inv(md['w2c'][0])[:, :3, 3]  # Get scene radius
@@ -95,27 +98,16 @@ def initialize_params(seq, md, data_dir: str):
 
 
 def initialize_optimizer(params, variables):
-    # lrs = {
-    #     # 'means3D': 0.00016 * variables['scene_radius'],
-    #     'means3D': 0.0005 * variables['scene_radius'],
-    #     # 'means3D': 0.005,
-    #     'rgb_colors': 0.0025,
-    #     'seg_colors': 0.0,
-    #     'unnorm_rotations': 0.001,
-    #     'logit_opacities': 0.05,
-    #     'log_scales': 0.001,
-    #     'cam_m': 1e-4,
-    #     'cam_c': 1e-4,
-    # }
     lrs = {
-        'means3D': 0.00016 * variables['scene_radius'],
+        # 'means3D': 0.00016 * variables['scene_radius'],
+        'means3D': 0.0000 * variables['scene_radius'],
         # 'means3D': 0.0005 * variables['scene_radius'],
         # 'means3D': 0.005,
         'rgb_colors': 0.0025,
         'seg_colors': 0.0,
         'unnorm_rotations': 0.001,
         'logit_opacities': 0.05,
-        'log_scales': 0.001,
+        'log_scales': 0.000,
         'cam_m': 1e-4,
         'cam_c': 1e-4,
     }
@@ -178,11 +170,10 @@ def get_loss(params, curr_data, variables, is_initial_timestep, use_entropy_loss
         losses['soft_col_cons'] = l1_loss_v2(params['rgb_colors'], variables["prev_col"])
 
     # Losses for torus and pacnerf torus
-    loss_weights = {'im': 1.0, 'seg': 1.0, 'rigid': 1000.0, 'rot': 0.0, 'iso': 700.0, 'floor': 2.0, 'bg': 20.0,
-                    'soft_col_cons': 0.01}
-    # loss_weights = {'im': 50.0, 'seg': 3.0, 'rigid': 1000.0, 'rot': 0.0, 'iso': 700.0, 'floor': 2.0, 'bg': 20.0,
+    # loss_weights = {'im': 1.0, 'seg': 1.0, 'rigid': 1000.0, 'rot': 0.0, 'iso': 700.0, 'floor': 2.0, 'bg': 20.0,
     #                 'soft_col_cons': 0.01}
-
+    loss_weights = {'im': 1.0, 'seg': 3.0, 'rigid': 1000.0, 'rot': 0.0, 'iso': 700.0, 'floor': 2.0, 'bg': 20.0,
+                    'soft_col_cons': 0.01}
 
     wandb.log(losses)
     loss = sum([loss_weights[k] * v for k, v in losses.items()])
@@ -247,15 +238,14 @@ def initialize_post_first_timestep(params, variables, optimizer, num_knn=20):
     for param_group in optimizer.param_groups:
         if param_group["name"] in params_to_fix:
             param_group['lr'] = 0.0
+        if param_group["name"] == "means3D":
+            param_group['lr'] = 0.00016 * variables['scene_radius']
+            print("Updated Means LR")
     return variables
 
 
 def report_progress(params, data, i, progress_bar, every_i=100):
     if i % every_i == 0:
-        # if i > 500 and i % 2 == 0:
-        #     data['cam'].bg[0] = 1.0
-        #     data['cam'].bg[1] = 1.0
-        #     data['cam'].bg[2] = 1.0
         im, _, _, = Renderer(raster_settings=data['cam'])(**params2rendervar(params))
         wandb.log({"renders": wandb.Image(im)})
         curr_id = data['id']
@@ -282,9 +272,10 @@ def train(seq, exp, args: argparse.Namespace):
         return
     os.makedirs(f"{args.output}/{exp}/{seq}")
     md = json.load(open(f"{args.data}/{seq}/train_meta.json", 'r'))  # metadata
+    registration = json.load(open("/home/pavlos/Desktop/Spring-Gaus/checkpoints/potato/registration.json", "r"))
     num_timesteps = len(md['fn'])
     num_timesteps = min(num_timesteps, args.timesteps)
-    params, variables = initialize_params(seq, md, args.data)
+    params, variables = initialize_params(seq, md, args.data, path_to_static, registration)
     optimizer = initialize_optimizer(params, variables)
     output_params = []
     for t in range(num_timesteps):
@@ -303,10 +294,10 @@ def train(seq, exp, args: argparse.Namespace):
             with torch.no_grad():
                 report_progress(params, dataset[0], i, progress_bar)
                 if is_initial_timestep:
-                    params, variables = densify(params, variables, optimizer, i)
-                    # if i == num_iter_per_timestep - 1:
+                    params, variables = prune(params, variables, optimizer, i)
+                    if i == num_iter_per_timestep - 1:
                     #     # params, variables = remove_transparent(params, variables, optimizer, remove_threshold=0.998)
-                    #     params, variables = poisson_subsample(params, variables, optimizer, target=12000)
+                        params, variables = poisson_subsample(params, variables, optimizer, target=12000)
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
             if i == num_iter_per_timestep - 1:

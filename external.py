@@ -230,3 +230,25 @@ def densify(params, variables, optimizer, i):
             params = update_params_and_optimizer(new_params, params, optimizer)
 
     return params, variables
+
+def prune(params, variables, optimizer, i):
+    if i <= 5000:
+        variables = accumulate_mean2d_gradient(variables)
+        grad_thresh = 0.0002
+        if (i >= 500) and (i % 100 == 0):
+
+            # remove_threshold = 0.25 if i == 5000 else 0.005
+            remove_threshold = 0.25 if i >= 1500 else 0.005
+            to_remove = (torch.sigmoid(params['logit_opacities']) < remove_threshold).squeeze()
+            if i >= 3000:
+                big_points_ws = torch.exp(params['log_scales']).max(dim=1).values > 0.1 * variables['scene_radius']
+                to_remove = torch.logical_or(to_remove, big_points_ws)
+            params, variables = remove_points(to_remove, params, variables, optimizer)
+
+            torch.cuda.empty_cache()
+
+        if i > 0 and i % 3000 == 0:
+            new_params = {'logit_opacities': inverse_sigmoid(torch.ones_like(params['logit_opacities']) * 0.01)}
+            params = update_params_and_optimizer(new_params, params, optimizer)
+
+    return params, variables
